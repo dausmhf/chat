@@ -2,7 +2,7 @@ import os
 import uuid
 from typing import Any, Dict, Optional
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Request, UploadFile, status
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -11,7 +11,7 @@ from app.admin.admin_command_service import execute_bot_on, execute_takeover
 from app.admin.tenant_service import create_tenant
 from app.config import client_config_manager, settings
 from app.ingestion.event_handler import get_or_create_client_uuid
-from app.rag.ingestion_service import ingest_text_knowledge, list_knowledge_documents
+from app.rag.ingestion_service import ingest_file_knowledge, ingest_text_knowledge, list_knowledge_documents
 from app.storage import models
 from app.storage.database import get_db
 
@@ -163,6 +163,36 @@ async def ingest_knowledge_text(
             document_type=body.document_type,
             doc_priority=body.doc_priority,
             metadata=body.metadata,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+@router.post("/admin/{client_code}/api/knowledge/file")
+async def ingest_knowledge_file(
+    client_code: str,
+    title: str = Form(...),
+    source_type: str = Form("brochure_pdf"),
+    document_type: str = Form("faq"),
+    doc_priority: int = Form(70),
+    file: UploadFile = File(...),
+    _: None = Depends(require_admin_token),
+    db: Session = Depends(get_db),
+):
+    client_uuid = get_or_create_client_uuid(db, client_code)
+    content = await file.read()
+    try:
+        return ingest_file_knowledge(
+            db,
+            client_id=client_uuid,
+            client_code=client_code,
+            title=title,
+            filename=file.filename or "knowledge.txt",
+            content=content,
+            content_type=file.content_type or "",
+            source_type=source_type,
+            document_type=document_type,
+            doc_priority=doc_priority,
         )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
@@ -404,6 +434,7 @@ def _dashboard_html(client_code: str) -> str:
     button.danger {{ background: var(--red); color: #fff; border-color: var(--red); }}
     button:disabled {{ opacity: .5; cursor: not-allowed; }}
     input, select {{ height: 34px; border: 1px solid var(--line); border-radius: 6px; padding: 0 10px; min-width: 180px; background: #fff; }}
+    input[type=file] {{ padding: 6px 10px; }}
     textarea {{ width: 100%; min-height: 92px; border: 1px solid var(--line); border-radius: 6px; padding: 10px; resize: vertical; font: inherit; }}
     .layout {{ display: grid; grid-template-columns: 380px 1fr; height: calc(100vh - 56px); }}
     .sidebar {{ border-right: 1px solid var(--line); background: var(--panel); overflow: auto; }}
@@ -480,6 +511,11 @@ def _dashboard_html(client_code: str) -> str:
           <button id="ingestKnowledge" class="primary">Tambah</button>
         </div>
         <textarea id="knowledgeText" placeholder="Masukkan data resmi travel: itinerary, hotel, maskapai, fasilitas, FAQ, atau ketentuan."></textarea>
+        <div class="knowledge-grid">
+          <input id="knowledgeFileTitle" placeholder="Judul file knowledge">
+          <input id="knowledgeFile" type="file" accept=".pdf,.txt,.md">
+          <button id="uploadKnowledgeFile" class="primary">Upload File</button>
+        </div>
         <table><thead><tr><th>Dokumen</th><th>Tipe</th><th>Chunk</th><th>Versi</th></tr></thead><tbody id="knowledgeRows"></tbody></table>
       </div>
     </section>
@@ -603,6 +639,29 @@ def _dashboard_html(client_code: str) -> str:
       alert("Knowledge berhasil ditambahkan.");
     }}
 
+    async function uploadKnowledgeFile() {{
+      const title = document.getElementById("knowledgeFileTitle").value.trim();
+      const file = document.getElementById("knowledgeFile").files[0];
+      if (!title || !file) {{
+        alert("Judul file dan file wajib diisi.");
+        return;
+      }}
+      const form = new FormData();
+      form.append("title", title);
+      form.append("file", file);
+      form.append("document_type", document.getElementById("knowledgeType").value);
+      form.append("source_type", document.getElementById("knowledgeSource").value);
+      form.append("doc_priority", "80");
+      await request(`/admin/${{clientCode}}/api/knowledge/file`, {{
+        method: "POST",
+        body: form,
+      }});
+      document.getElementById("knowledgeFileTitle").value = "";
+      document.getElementById("knowledgeFile").value = "";
+      await loadKnowledge();
+      alert("File knowledge berhasil diupload.");
+    }}
+
     async function action(path) {{
       if (!selectedId) return;
       await request(`/admin/${{clientCode}}/api/conversations/${{selectedId}}/${{path}}`, {{method: "POST"}});
@@ -617,6 +676,7 @@ def _dashboard_html(client_code: str) -> str:
     document.getElementById("botOn").addEventListener("click", () => action("bot-on"));
     document.getElementById("takeover").addEventListener("click", () => action("takeover"));
     document.getElementById("ingestKnowledge").addEventListener("click", ingestKnowledge);
+    document.getElementById("uploadKnowledgeFile").addEventListener("click", uploadKnowledgeFile);
     loadConversations();
     loadKnowledge();
     setInterval(() => selectedId ? loadMessages(selectedId) : loadConversations(), 15000);

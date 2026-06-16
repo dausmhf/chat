@@ -2,6 +2,8 @@ import datetime
 import uuid
 
 from app.rag.ingestion_service import ingest_text_knowledge, list_knowledge_documents
+from app.rag.ingestion_service import ingest_file_knowledge
+from app.config import settings
 from app.rag.retriever import RAGRetriever
 from app.storage import models
 
@@ -59,3 +61,27 @@ def test_ingested_knowledge_is_retrievable(test_db):
 
     assert result.chunks
     assert "Hotel Daus Madinah" in result.chunks[0].chunk.chunk_text
+
+
+def test_ingest_text_file_knowledge_stores_file_and_chunks(test_db, tmp_path, monkeypatch):
+    monkeypatch.setattr(settings, "storage_root", str(tmp_path))
+    client_id = uuid.UUID("11111111-1111-1111-1111-111111111111")
+
+    result = ingest_file_knowledge(
+        test_db,
+        client_id=client_id,
+        client_code="travel_alfalah",
+        title="FAQ Upload",
+        filename="faq-upload.txt",
+        content=b"FAQ: Jamaah boleh request kamar quad sesuai ketersediaan dan konfirmasi admin travel.",
+        content_type="text/plain",
+        source_type="faq",
+        document_type="faq",
+    )
+
+    document = test_db.query(models.KnowledgeDocument).filter_by(id=uuid.UUID(result["document_id"])).first()
+    assert document is not None
+    assert document.file_path
+    assert document.file_path.startswith(str(tmp_path))
+    assert document.meta_data["stored_file_path"] == document.file_path
+    assert result["chunk_count"] == 1

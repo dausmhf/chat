@@ -1,13 +1,18 @@
 import datetime
 import re
 import uuid
+from io import BytesIO
+from pathlib import Path
 from typing import Dict, List, Optional
 
 from sqlalchemy.orm import Session
 
 from app.ai.llm_client import LLMClient
-from app.config import client_config_manager
+from app.config import client_config_manager, settings
 from app.storage import models
+
+MAX_KNOWLEDGE_FILE_BYTES = 10 * 1024 * 1024
+SUPPORTED_KNOWLEDGE_EXTENSIONS = {".pdf", ".txt", ".md"}
 
 
 def ingest_text_knowledge(
@@ -21,6 +26,7 @@ def ingest_text_knowledge(
     document_type: str = "faq",
     doc_priority: int = 70,
     metadata: Optional[Dict] = None,
+    file_path: Optional[str] = None,
 ) -> Dict[str, object]:
     clean_text = _normalize_text(text)
     if len(clean_text) < 20:
@@ -34,6 +40,7 @@ def ingest_text_knowledge(
         client_id=client_id,
         title=title.strip()[:220],
         source_type=source_type,
+        file_path=file_path,
         doc_version=doc_version,
         doc_priority=max(1, min(int(doc_priority), 100)),
         is_active=True,
@@ -90,6 +97,54 @@ def ingest_text_knowledge(
     }
 
 
+def ingest_file_knowledge(
+    db: Session,
+    *,
+    client_id: uuid.UUID,
+    client_code: str,
+    title: str,
+    filename: str,
+    content: bytes,
+    content_type: str = "",
+    source_type: str = "brochure_pdf",
+    document_type: str = "faq",
+    doc_priority: int = 70,
+    metadata: Optional[Dict] = None,
+) -> Dict[str, object]:
+    if not content:
+        raise ValueError("File kosong.")
+    if len(content) > MAX_KNOWLEDGE_FILE_BYTES:
+        raise ValueError("File terlalu besar. Maksimal 10 MB.")
+
+    ext = Path(filename or "").suffix.lower()
+    if ext not in SUPPORTED_KNOWLEDGE_EXTENSIONS:
+        raise ValueError("Format file belum didukung. Gunakan PDF, TXT, atau MD.")
+
+    stored_path = _store_knowledge_file(client_code, filename, content)
+    text = _extract_text_from_file(filename, content)
+    if len(text.strip()) < 20:
+        raise ValueError("Teks dari file terlalu pendek atau tidak terbaca.")
+
+    file_metadata = {
+        "original_filename": filename,
+        "content_type": content_type,
+        "stored_file_path": stored_path,
+        **(metadata or {}),
+    }
+    return ingest_text_knowledge(
+        db,
+        client_id=client_id,
+        client_code=client_code,
+        title=title,
+        text=text,
+        source_type=source_type,
+        document_type=document_type,
+        doc_priority=doc_priority,
+        metadata=file_metadata,
+        file_path=stored_path,
+    )
+
+
 def list_knowledge_documents(db: Session, client_id: uuid.UUID, limit: int = 50) -> List[Dict[str, object]]:
     rows = (
         db.query(models.KnowledgeDocument)
@@ -121,6 +176,35 @@ def list_knowledge_documents(db: Session, client_id: uuid.UUID, limit: int = 50)
 
 def _normalize_text(text: str) -> str:
     return re.sub(r"\n{3,}", "\n\n", text.strip())
+
+
+def _store_knowledge_file(client_code: str, filename: str, content: bytes) -> str:
+    upload_dir = Path(settings.storage_root) / "knowledge_uploads" / client_code
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    safe_name = _safe_filename(filename)
+    timestamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%d%H%M%S")
+    path = upload_dir / f"{timestamp}_{safe_name}"
+    path.write_bytes(content)
+    return str(path)
+
+
+def _extract_text_from_file(filename: str, content: bytes) -> str:
+    ext = Path(filename or "").suffix.lower()
+    if ext == ".pdf":
+        try:
+            from pypdf import PdfReader
+        except ImportError as exc:
+            raise ValueError("PDF parser belum tersedia di environment.") from exc
+        reader = PdfReader(BytesIO(content))
+        return "\n\n".join((page.extract_text() or "").strip() for page in reader.pages)
+    if ext in {".txt", ".md"}:
+        return content.decode("utf-8", errors="replace")
+    raise ValueError("Format file belum didukung. Gunakan PDF, TXT, atau MD.")
+
+
+def _safe_filename(filename: str) -> str:
+    cleaned = re.sub(r"[^A-Za-z0-9._-]+", "_", Path(filename or "knowledge.txt").name)
+    return cleaned[:160] or "knowledge.txt"
 
 
 def _chunk_text(text: str, max_words: int = 180, overlap_words: int = 30) -> List[str]:
