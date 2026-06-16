@@ -322,6 +322,45 @@ class KnowledgeChunk(Base):
     meta_data = Column("metadata", SafeJSONB, nullable=False, default={})
     created_at = Column(DateTime(timezone=True), nullable=False, default=func.now())
 
+class RagResponseCache(Base):
+    __tablename__ = "rag_response_cache"
+    id = Column(SafeUUID, primary_key=True, default=uuid.uuid4)
+    client_id = Column(SafeUUID, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False)
+    cache_key = Column(String(180), nullable=False)
+    normalized_query = Column(Text, nullable=False)
+    knowledge_version = Column(String(80), nullable=False)
+    answer_text = Column(Text, nullable=False)
+    confidence = Column(Numeric(5, 4), nullable=False)
+    sources = Column(SafeJSONB, nullable=False, default=[])
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=func.now())
+
+class RagSourceTrace(Base):
+    __tablename__ = "rag_source_traces"
+    id = Column(SafeUUID, primary_key=True, default=uuid.uuid4)
+    client_id = Column(SafeUUID, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False)
+    conversation_id = Column(SafeUUID, ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False)
+    message_id = Column(SafeUUID, ForeignKey("messages.id", ondelete="SET NULL"), nullable=True)
+    answer_type = Column(String(60), nullable=False, default="rag_answer")
+    normalized_query = Column(Text, nullable=False)
+    confidence = Column(Numeric(5, 4), nullable=False)
+    knowledge_version = Column(String(80), nullable=False)
+    sources = Column(SafeJSONB, nullable=False, default=[])
+    meta_data = Column("metadata", SafeJSONB, nullable=False, default={})
+    created_at = Column(DateTime(timezone=True), nullable=False, default=func.now())
+
+class KnowledgeConflictLog(Base):
+    __tablename__ = "knowledge_conflict_logs"
+    id = Column(SafeUUID, primary_key=True, default=uuid.uuid4)
+    client_id = Column(SafeUUID, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False)
+    conversation_id = Column(SafeUUID, ForeignKey("conversations.id", ondelete="SET NULL"), nullable=True)
+    query_text = Column(Text, nullable=True)
+    conflict_type = Column(String(80), nullable=False)
+    conflict_fields = Column(SafeARRAY(Text), nullable=False, default=[])
+    sources = Column(SafeJSONB, nullable=False, default=[])
+    resolution = Column(String(80), nullable=False, default="handover_required")
+    created_at = Column(DateTime(timezone=True), nullable=False, default=func.now())
+
 class Booking(Base):
     __tablename__ = "bookings"
     id = Column(SafeUUID, primary_key=True, default=uuid.uuid4)

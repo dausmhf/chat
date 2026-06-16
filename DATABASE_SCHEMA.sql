@@ -307,6 +307,52 @@ CREATE TABLE IF NOT EXISTS knowledge_chunks (
 
 CREATE INDEX IF NOT EXISTS idx_knowledge_chunks_client ON knowledge_chunks(client_id);
 
+CREATE TABLE IF NOT EXISTS rag_response_cache (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+  cache_key VARCHAR(180) NOT NULL,
+  normalized_query TEXT NOT NULL,
+  knowledge_version VARCHAR(80) NOT NULL,
+  answer_text TEXT NOT NULL,
+  confidence NUMERIC(5,4) NOT NULL,
+  sources JSONB NOT NULL DEFAULT '[]',
+  expires_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (client_id, cache_key)
+);
+
+CREATE INDEX IF NOT EXISTS idx_rag_response_cache_expires ON rag_response_cache(client_id, expires_at);
+
+CREATE TABLE IF NOT EXISTS rag_source_traces (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+  conversation_id UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+  message_id UUID REFERENCES messages(id) ON DELETE SET NULL,
+  answer_type VARCHAR(60) NOT NULL DEFAULT 'rag_answer',
+  normalized_query TEXT NOT NULL,
+  confidence NUMERIC(5,4) NOT NULL,
+  knowledge_version VARCHAR(80) NOT NULL,
+  sources JSONB NOT NULL DEFAULT '[]',
+  metadata JSONB NOT NULL DEFAULT '{}',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_rag_source_traces_message ON rag_source_traces(client_id, message_id);
+
+CREATE TABLE IF NOT EXISTS knowledge_conflict_logs (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+  conversation_id UUID REFERENCES conversations(id) ON DELETE SET NULL,
+  query_text TEXT,
+  conflict_type VARCHAR(80) NOT NULL,
+  conflict_fields TEXT[] NOT NULL DEFAULT '{}',
+  sources JSONB NOT NULL DEFAULT '[]',
+  resolution VARCHAR(80) NOT NULL DEFAULT 'handover_required',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_knowledge_conflict_logs_client ON knowledge_conflict_logs(client_id, created_at DESC);
+
 -- =========================
 -- BOOKING, PASSENGERS, INVOICE
 -- =========================

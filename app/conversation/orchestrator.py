@@ -17,7 +17,9 @@ from app.conversation.state_manager import can_bot_reply
 from app.ingestion.event_handler import get_or_create_client_uuid, handle_incoming_webhook
 from app.ingestion.rate_limiter import check_rate_limit
 from app.payment.manual_payment_service import triage_incoming_file
-from app.rag.retriever import RAGRetriever
+from app.rag.cache_manager import get_cached_answer, store_cached_answer
+from app.rag.retriever import RAGRetriever, RAGRetrievalResult
+from app.rag.source_trace_logger import log_source_trace
 from app.storage import models
 from app.storage.repositories import MessageRepository, PackageRepository
 
@@ -112,7 +114,7 @@ def process_incoming_message(
         return _handle_booking(db, client_uuid, client_code, conversation, contact, lead_profile, message, adapter, llm_client, configs, send_reply)
 
     if intent in {"ask_package", "ask_price", "unknown", "acknowledgement"}:
-        reply, rag_handover = _answer_with_rag_or_package_data(
+        reply, rag_handover, rag_result, cache_hit = _answer_with_rag_or_package_data(
             db, client_uuid, client_code, contact, conversation, message, llm_client, configs
         )
         is_safe, final_reply = validate_response(
@@ -123,7 +125,36 @@ def process_incoming_message(
         )
         if rag_handover or not is_safe:
             create_handover(db, client_uuid, conversation, "knowledge_or_safety_fallback", final_reply, contact, lead_profile)
-        _send_and_log(db, client_uuid, conversation, contact, adapter, final_reply, send_reply)
+        outgoing = _send_and_log(db, client_uuid, conversation, contact, adapter, final_reply, send_reply)
+        if rag_result:
+            log_source_trace(
+                db=db,
+                client_id=client_uuid,
+                conversation_id=conversation.id,
+                message_id=outgoing.id,
+                normalized_query=rag_result.normalized_query,
+                confidence=rag_result.confidence,
+                knowledge_version=rag_result.knowledge_version,
+                sources=rag_result.sources,
+                metadata={
+                    "cache_hit": cache_hit,
+                    "requires_handover": rag_handover,
+                    "handover_reason": rag_result.handover_reason,
+                    "is_safe": is_safe,
+                },
+            )
+            if _should_cache_rag_answer(configs, rag_result, rag_handover, is_safe, cache_hit):
+                token_cfg = configs["ai"].get("token_optimization", {})
+                store_cached_answer(
+                    db=db,
+                    client_id=client_uuid,
+                    normalized_query=rag_result.normalized_query,
+                    knowledge_version=rag_result.knowledge_version,
+                    answer_text=final_reply,
+                    confidence=rag_result.confidence,
+                    sources=rag_result.sources,
+                    ttl_minutes=int(token_cfg.get("response_cache_ttl_minutes", 60)),
+                )
         return {"status": "handover" if rag_handover else "replied", "intent": intent, "reply": final_reply}
 
     reply = "InsyaAllah saya bantu ya Ayah/Bunda. Untuk memastikan jawabannya tepat, saya teruskan ke admin."
@@ -206,27 +237,47 @@ def _answer_with_rag_or_package_data(
     message: models.Message,
     llm_client: LLMClient,
     configs: Dict[str, Any],
-) -> Tuple[str, bool]:
+) -> Tuple[str, bool, Optional[RAGRetrievalResult], bool]:
     text = message.text_content or ""
     retrieved_chunks: List[str] = []
     requires_handover = False
+    rag_result: Optional[RAGRetrievalResult] = None
+    cache_hit = False
 
     if configs["feature_flags"].get("rag_answering", True):
         try:
             query_embedding = llm_client.embed_text(text)
             threshold = float(configs["ai"].get("safety", {}).get("retrieval_score_min", 0.55))
-            top_k = int(configs["ai"].get("token_optimization", {}).get("rag_top_k", 3))
-            chunks, requires_handover = RAGRetriever(db, client_uuid).retrieve_context(query_embedding, threshold, top_k)
-            retrieved_chunks = [chunk.chunk_text for chunk in chunks]
+            token_cfg = configs["ai"].get("token_optimization", {})
+            top_k = int(token_cfg.get("rag_top_k", 3))
+            rag_result = RAGRetriever(db, client_uuid).retrieve(
+                query_text=text,
+                query_embedding=query_embedding,
+                min_threshold=threshold,
+                top_k=top_k,
+                conversation_id=conversation.id,
+            )
+            requires_handover = rag_result.requires_handover or rag_result.confidence < threshold
+            if token_cfg.get("response_cache_enabled", True) and rag_result.chunks and not requires_handover:
+                cached = get_cached_answer(db, client_uuid, rag_result.normalized_query, rag_result.knowledge_version)
+                if cached:
+                    cache_hit = True
+                    rag_result.confidence = float(cached.confidence)
+                    rag_result.sources = list(cached.sources or [])
+                    return cached.answer_text, False, rag_result, cache_hit
+            max_chunk_tokens = int(token_cfg.get("max_chunk_tokens", 500))
+            retrieved_chunks = [_trim_chunk(item.chunk.chunk_text, max_chunk_tokens) for item in rag_result.chunks]
         except Exception as exc:
             print(f"ConversationOrchestrator: RAG retrieval failed: {str(exc)}")
 
     package_context = _package_context(db, client_uuid)
     if package_context:
         retrieved_chunks.append(package_context)
+        if not (rag_result and rag_result.chunks):
+            requires_handover = False
 
     if not retrieved_chunks:
-        return "Untuk data itu saya bantu teruskan ke admin ya Ayah/Bunda, agar jawabannya lebih pasti sesuai data terbaru travel.", True
+        return "Untuk data itu saya bantu teruskan ke admin ya Ayah/Bunda, agar jawabannya lebih pasti sesuai data terbaru travel.", True, rag_result, cache_hit
 
     history = _recent_history(db, conversation.id, max_messages=8)
     system_prompt = build_system_prompt(
@@ -241,7 +292,9 @@ def _answer_with_rag_or_package_data(
         temperature=float(configs["ai"].get("temperature", 0.25)),
         max_tokens=int(configs["ai"].get("max_output_tokens", 650)),
     )
-    return response, requires_handover
+    if rag_result and 0.55 <= rag_result.confidence < 0.78 and not requires_handover:
+        response = response.rstrip() + "\n\nKalau Ayah/Bunda ingin kepastian terakhir, saya bisa bantu teruskan ke admin."
+    return response, requires_handover, rag_result, cache_hit
 
 
 def _package_context(db: Session, client_uuid: uuid.UUID) -> str:
@@ -307,7 +360,7 @@ def _send_and_log(
     adapter: Any,
     reply: str,
     send_reply: bool,
-) -> None:
+) -> models.Message:
     provider_message_id = ""
     send_success = False
     error_message = ""
@@ -316,7 +369,7 @@ def _send_and_log(
         provider_message_id = result.message_id
         send_success = result.success
         error_message = result.error_message
-    MessageRepository(db, client_uuid).log_message(
+    return MessageRepository(db, client_uuid).log_message(
         conversation_id=conversation.id,
         direction="outgoing",
         message_type="text",
@@ -326,6 +379,28 @@ def _send_and_log(
         sender_type="bot",
         metadata={"send_success": send_success, "error": error_message},
     )
+
+
+def _trim_chunk(text: str, max_tokens: int) -> str:
+    words = (text or "").split()
+    if len(words) <= max_tokens:
+        return text
+    return " ".join(words[:max_tokens]) + " ..."
+
+
+def _should_cache_rag_answer(
+    configs: Dict[str, Any],
+    rag_result: RAGRetrievalResult,
+    rag_handover: bool,
+    is_safe: bool,
+    cache_hit: bool,
+) -> bool:
+    token_cfg = configs["ai"].get("token_optimization", {})
+    if cache_hit or not token_cfg.get("response_cache_enabled", True):
+        return False
+    if rag_handover or not is_safe:
+        return False
+    return bool(rag_result.sources and rag_result.confidence >= 0.78)
 
 
 def _get_adapter(channel: str) -> Any:
