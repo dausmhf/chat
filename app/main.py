@@ -137,9 +137,9 @@ async def admin_tenant_index():
       gemini_api_key_env: document.getElementById("geminiEnv").value.trim() || "GEMINI_API_KEY",
     }};
     const token = document.getElementById("token").value.trim();
-    const res = await fetch(`/admin/api/tenants?token=${{encodeURIComponent(token)}}`, {{
+    const res = await fetch("/admin/api/tenants", {{
       method: "POST",
-      headers: {{"Content-Type": "application/json"}},
+      headers: {{"Content-Type": "application/json", "X-Admin-Token": token}},
       body: JSON.stringify(payload),
     }});
     document.getElementById("result").textContent = JSON.stringify(await res.json(), null, 2);

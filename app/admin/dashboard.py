@@ -492,11 +492,12 @@ def _dashboard_html(client_code: str) -> str:
     tokenInput.value = token;
 
     function authUrl(path) {{
-      const sep = path.includes("?") ? "&" : "?";
-      return token ? `${{path}}${{sep}}token=${{encodeURIComponent(token)}}` : path;
+      return path;
     }}
     async function request(path, options = {{}}) {{
-      const res = await fetch(authUrl(path), options);
+      const headers = Object.assign({{}}, options.headers || {{}});
+      if (token) headers["X-Admin-Token"] = token;
+      const res = await fetch(authUrl(path), Object.assign({{}}, options, {{headers}}));
       if (!res.ok) throw new Error(`${{res.status}} ${{await res.text()}}`);
       return res.json();
     }}
