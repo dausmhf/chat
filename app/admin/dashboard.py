@@ -1,18 +1,39 @@
 import os
 import uuid
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from fastapi.responses import HTMLResponse
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.admin.admin_command_service import execute_bot_on, execute_takeover
+from app.admin.tenant_service import create_tenant
 from app.config import client_config_manager, settings
 from app.ingestion.event_handler import get_or_create_client_uuid
+from app.rag.ingestion_service import ingest_text_knowledge, list_knowledge_documents
 from app.storage import models
 from app.storage.database import get_db
 
 router = APIRouter()
+
+
+class TenantCreateRequest(BaseModel):
+    client_code: str = Field(min_length=2, max_length=80)
+    brand_name: str = Field(min_length=2, max_length=180)
+    bot_name: str = Field(default="Admin AI", max_length=180)
+    admin_phone: Optional[str] = None
+    starsender_api_key_env: str = "STARSENDER_API_KEY"
+    gemini_api_key_env: str = "GEMINI_API_KEY"
+
+
+class KnowledgeTextRequest(BaseModel):
+    title: str = Field(min_length=2, max_length=220)
+    text: str = Field(min_length=20)
+    source_type: str = "admin_override"
+    document_type: str = "faq"
+    doc_priority: int = Field(default=70, ge=1, le=100)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
 def require_admin_token(request: Request, client_code: Optional[str] = None, x_admin_token: Optional[str] = Header(default=None)) -> None:
@@ -34,6 +55,26 @@ def require_admin_token(request: Request, client_code: Optional[str] = None, x_a
 async def admin_dashboard(client_code: str):
     _ensure_client_exists(client_code)
     return HTMLResponse(_dashboard_html(client_code))
+
+
+@router.post("/admin/api/tenants")
+async def create_tenant_endpoint(
+    body: TenantCreateRequest,
+    _: None = Depends(require_admin_token),
+    db: Session = Depends(get_db),
+):
+    try:
+        return create_tenant(
+            db,
+            client_code=body.client_code,
+            brand_name=body.brand_name,
+            bot_name=body.bot_name,
+            admin_phone=body.admin_phone,
+            starsender_api_key_env=body.starsender_api_key_env,
+            gemini_api_key_env=body.gemini_api_key_env,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
 
 @router.get("/admin/{client_code}/api/conversations")
@@ -93,6 +134,40 @@ async def list_conversations(
     return {"conversations": result}
 
 
+@router.get("/admin/{client_code}/api/knowledge")
+async def list_knowledge(
+    client_code: str,
+    _: None = Depends(require_admin_token),
+    db: Session = Depends(get_db),
+):
+    client_uuid = get_or_create_client_uuid(db, client_code)
+    return {"documents": list_knowledge_documents(db, client_uuid)}
+
+
+@router.post("/admin/{client_code}/api/knowledge/text")
+async def ingest_knowledge_text(
+    client_code: str,
+    body: KnowledgeTextRequest,
+    _: None = Depends(require_admin_token),
+    db: Session = Depends(get_db),
+):
+    client_uuid = get_or_create_client_uuid(db, client_code)
+    try:
+        return ingest_text_knowledge(
+            db,
+            client_id=client_uuid,
+            client_code=client_code,
+            title=body.title,
+            text=body.text,
+            source_type=body.source_type,
+            document_type=body.document_type,
+            doc_priority=body.doc_priority,
+            metadata=body.metadata,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
 @router.get("/admin/{client_code}/api/conversations/{conversation_id}/messages")
 async def conversation_messages(
     client_code: str,
@@ -128,6 +203,43 @@ async def conversation_messages(
         .limit(20)
         .all()
     )
+    rag_traces = (
+        db.query(models.RagSourceTrace)
+        .filter(models.RagSourceTrace.client_id == client_uuid, models.RagSourceTrace.conversation_id == conversation.id)
+        .order_by(models.RagSourceTrace.created_at.desc())
+        .limit(20)
+        .all()
+    )
+    conflicts = (
+        db.query(models.KnowledgeConflictLog)
+        .filter(models.KnowledgeConflictLog.client_id == client_uuid, models.KnowledgeConflictLog.conversation_id == conversation.id)
+        .order_by(models.KnowledgeConflictLog.created_at.desc())
+        .limit(20)
+        .all()
+    )
+    messages = []
+    for message in reversed(rows):
+        raw_payload = None
+        if message.raw_payload_id:
+            raw = (
+                db.query(models.RawWebhookPayload)
+                .filter(models.RawWebhookPayload.client_id == client_uuid, models.RawWebhookPayload.id == message.raw_payload_id)
+                .first()
+            )
+            raw_payload = _redact_payload(raw.payload) if raw else None
+        messages.append({
+            "id": str(message.id),
+            "created_at": _iso(message.created_at),
+            "direction": message.direction,
+            "sender_type": message.sender_type,
+            "message_type": message.message_type,
+            "text": message.text_content or "",
+            "file_url": message.file_url or "",
+            "provider_message_id": message.provider_message_id or "",
+            "send_success": (message.meta_data or {}).get("send_success"),
+            "error": (message.meta_data or {}).get("error", ""),
+            "raw_payload": raw_payload,
+        })
     return {
         "conversation": {
             "id": str(conversation.id),
@@ -137,21 +249,7 @@ async def conversation_messages(
             "name": contact.display_name if contact else "",
             "last_message_at": _iso(conversation.last_message_at),
         },
-        "messages": [
-            {
-                "id": str(message.id),
-                "created_at": _iso(message.created_at),
-                "direction": message.direction,
-                "sender_type": message.sender_type,
-                "message_type": message.message_type,
-                "text": message.text_content or "",
-                "file_url": message.file_url or "",
-                "provider_message_id": message.provider_message_id or "",
-                "send_success": (message.meta_data or {}).get("send_success"),
-                "error": (message.meta_data or {}).get("error", ""),
-            }
-            for message in reversed(rows)
-        ],
+        "messages": messages,
         "handovers": [
             {
                 "created_at": _iso(event.triggered_at),
@@ -169,6 +267,29 @@ async def conversation_messages(
                 "new_value": audit.new_value,
             }
             for audit in audits
+        ],
+        "rag_traces": [
+            {
+                "created_at": _iso(trace.created_at),
+                "answer_type": trace.answer_type,
+                "normalized_query": trace.normalized_query,
+                "confidence": float(trace.confidence),
+                "knowledge_version": trace.knowledge_version,
+                "sources": trace.sources,
+                "metadata": trace.meta_data,
+            }
+            for trace in rag_traces
+        ],
+        "knowledge_conflicts": [
+            {
+                "created_at": _iso(conflict.created_at),
+                "query_text": conflict.query_text,
+                "conflict_type": conflict.conflict_type,
+                "conflict_fields": conflict.conflict_fields,
+                "resolution": conflict.resolution,
+                "sources": conflict.sources,
+            }
+            for conflict in conflicts
         ],
     }
 
@@ -242,6 +363,18 @@ def _admin_token_for_client(client_code: str) -> str:
     return os.getenv("ADMIN_DASHBOARD_TOKEN", "")
 
 
+def _redact_payload(value: Any) -> Any:
+    sensitive = {"apikey", "api_key", "authorization", "token", "access_token", "password", "secret"}
+    if isinstance(value, dict):
+        return {
+            key: "[redacted]" if key.lower() in sensitive else _redact_payload(item)
+            for key, item in value.items()
+        }
+    if isinstance(value, list):
+        return [_redact_payload(item) for item in value[:50]]
+    return value
+
+
 def _dashboard_html(client_code: str) -> str:
     return f"""<!doctype html>
 <html lang="id">
@@ -270,7 +403,8 @@ def _dashboard_html(client_code: str) -> str:
     button.primary {{ background: var(--green); color: #fff; border-color: var(--green); }}
     button.danger {{ background: var(--red); color: #fff; border-color: var(--red); }}
     button:disabled {{ opacity: .5; cursor: not-allowed; }}
-    input {{ height: 34px; border: 1px solid var(--line); border-radius: 6px; padding: 0 10px; min-width: 260px; }}
+    input, select {{ height: 34px; border: 1px solid var(--line); border-radius: 6px; padding: 0 10px; min-width: 180px; background: #fff; }}
+    textarea {{ width: 100%; min-height: 92px; border: 1px solid var(--line); border-radius: 6px; padding: 10px; resize: vertical; font: inherit; }}
     .layout {{ display: grid; grid-template-columns: 380px 1fr; height: calc(100vh - 56px); }}
     .sidebar {{ border-right: 1px solid var(--line); background: var(--panel); overflow: auto; }}
     .content {{ min-width: 0; display: grid; grid-template-rows: auto 1fr auto; overflow: hidden; }}
@@ -290,7 +424,9 @@ def _dashboard_html(client_code: str) -> str:
     .bubble.incoming {{ margin-right: auto; }}
     .bubble.outgoing {{ margin-left: auto; background: #eefaf3; border-color: #b7dec7; }}
     .meta {{ color: var(--muted); font-size: 12px; margin-bottom: 5px; display: flex; justify-content: space-between; gap: 10px; }}
-    .bottom {{ border-top: 1px solid var(--line); background: var(--panel); padding: 10px 12px; max-height: 220px; overflow: auto; }}
+    .bottom {{ border-top: 1px solid var(--line); background: var(--panel); padding: 10px 12px; max-height: 320px; overflow: auto; }}
+    .stack {{ display: grid; gap: 8px; }}
+    .knowledge-grid {{ display: grid; grid-template-columns: 1fr 150px 150px auto; gap: 8px; align-items: start; margin: 10px 0; }}
     table {{ width: 100%; border-collapse: collapse; font-size: 12px; }}
     th, td {{ text-align: left; border-bottom: 1px solid var(--line); padding: 7px; vertical-align: top; }}
     .empty {{ color: var(--muted); padding: 18px; }}
@@ -299,6 +435,7 @@ def _dashboard_html(client_code: str) -> str:
       .sidebar {{ border-right: 0; border-bottom: 1px solid var(--line); }}
       input {{ min-width: 160px; width: 100%; }}
       .toolbar {{ flex-wrap: wrap; }}
+      .knowledge-grid {{ grid-template-columns: 1fr; }}
     }}
   </style>
 </head>
@@ -324,6 +461,26 @@ def _dashboard_html(client_code: str) -> str:
       <div class="bottom">
         <strong>Handover & Audit Log</strong>
         <table><thead><tr><th>Waktu</th><th>Tipe</th><th>Detail</th></tr></thead><tbody id="auditRows"></tbody></table>
+        <hr>
+        <strong>Knowledge / RAG</strong>
+        <div class="knowledge-grid">
+          <input id="knowledgeTitle" placeholder="Judul knowledge">
+          <select id="knowledgeType">
+            <option value="itinerary">Itinerary</option>
+            <option value="faq">FAQ</option>
+            <option value="package">Paket</option>
+            <option value="terms">Syarat</option>
+          </select>
+          <select id="knowledgeSource">
+            <option value="admin_override">Admin Override</option>
+            <option value="faq">FAQ</option>
+            <option value="package_database">Package DB</option>
+            <option value="brochure_pdf">Brochure</option>
+          </select>
+          <button id="ingestKnowledge" class="primary">Tambah</button>
+        </div>
+        <textarea id="knowledgeText" placeholder="Masukkan data resmi travel: itinerary, hotel, maskapai, fasilitas, FAQ, atau ketentuan."></textarea>
+        <table><thead><tr><th>Dokumen</th><th>Tipe</th><th>Chunk</th><th>Versi</th></tr></thead><tbody id="knowledgeRows"></tbody></table>
       </div>
     </section>
   </main>
@@ -391,16 +548,60 @@ def _dashboard_html(client_code: str) -> str:
           <div class="meta"><span>${{esc(m.direction)}} · ${{esc(m.message_type)}} · send=${{m.send_success}}</span><span>${{fmtTime(m.created_at)}}</span></div>
           ${{esc(m.text || m.file_url || "-")}}
           ${{m.error ? `<div class="preview">Error: ${{esc(m.error)}}</div>` : ""}}
+          ${{m.raw_payload ? `<details><summary class="preview">Raw webhook</summary><pre>${{esc(JSON.stringify(m.raw_payload, null, 2))}}</pre></details>` : ""}}
         </div>
       `).join("") || '<div class="empty">Belum ada pesan.</div>';
       document.getElementById("auditRows").innerHTML = [
         ...data.handovers.map(h => ({{time: h.created_at, type: `handover:${{h.status}}`, detail: `${{h.reason}} - ${{h.summary}}`}})),
         ...data.audits.map(a => ({{time: a.created_at, type: a.event_type, detail: JSON.stringify(a.new_value || {{}})}})),
+        ...data.rag_traces.map(r => ({{time: r.created_at, type: `rag:${{r.confidence}}`, detail: `${{r.normalized_query}} | ${{JSON.stringify(r.sources || [])}}`}})),
+        ...data.knowledge_conflicts.map(k => ({{time: k.created_at, type: `conflict:${{k.conflict_type}}`, detail: `${{k.query_text}} | ${{JSON.stringify(k.conflict_fields || [])}}`}})),
       ].sort((a, b) => String(b.time).localeCompare(String(a.time))).map(row => `
         <tr><td>${{fmtTime(row.time)}}</td><td>${{esc(row.type)}}</td><td>${{esc(row.detail)}}</td></tr>
       `).join("");
       await loadConversations();
     }}
+
+    async function loadKnowledge() {{
+      try {{
+        const data = await request(`/admin/${{clientCode}}/api/knowledge`);
+        document.getElementById("knowledgeRows").innerHTML = data.documents.map(d => `
+          <tr>
+            <td>${{esc(d.title)}}</td>
+            <td>${{esc(d.document_type || d.source_type)}}</td>
+            <td>${{d.chunk_count}}</td>
+            <td>${{esc(d.doc_version)}}</td>
+          </tr>
+        `).join("") || '<tr><td colspan="4">Belum ada knowledge.</td></tr>';
+      }} catch (err) {{
+        document.getElementById("knowledgeRows").innerHTML = `<tr><td colspan="4">${{esc(err.message)}}</td></tr>`;
+      }}
+    }}
+
+    async function ingestKnowledge() {{
+      const title = document.getElementById("knowledgeTitle").value.trim();
+      const text = document.getElementById("knowledgeText").value.trim();
+      if (!title || text.length < 20) {{
+        alert("Judul dan isi knowledge minimal 20 karakter wajib diisi.");
+        return;
+      }}
+      await request(`/admin/${{clientCode}}/api/knowledge/text`, {{
+        method: "POST",
+        headers: {{"Content-Type": "application/json"}},
+        body: JSON.stringify({{
+          title,
+          text,
+          document_type: document.getElementById("knowledgeType").value,
+          source_type: document.getElementById("knowledgeSource").value,
+          doc_priority: 80,
+        }}),
+      }});
+      document.getElementById("knowledgeTitle").value = "";
+      document.getElementById("knowledgeText").value = "";
+      await loadKnowledge();
+      alert("Knowledge berhasil ditambahkan.");
+    }}
+
     async function action(path) {{
       if (!selectedId) return;
       await request(`/admin/${{clientCode}}/api/conversations/${{selectedId}}/${{path}}`, {{method: "POST"}});
@@ -414,7 +615,9 @@ def _dashboard_html(client_code: str) -> str:
     document.getElementById("refresh").addEventListener("click", loadConversations);
     document.getElementById("botOn").addEventListener("click", () => action("bot-on"));
     document.getElementById("takeover").addEventListener("click", () => action("takeover"));
+    document.getElementById("ingestKnowledge").addEventListener("click", ingestKnowledge);
     loadConversations();
+    loadKnowledge();
     setInterval(() => selectedId ? loadMessages(selectedId) : loadConversations(), 15000);
   </script>
 </body>

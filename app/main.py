@@ -22,6 +22,20 @@ app = FastAPI(
 app.include_router(admin_dashboard_router)
 
 
+@app.middleware("http")
+async def production_hardening(request: Request, call_next):
+    content_length = request.headers.get("content-length")
+    if content_length and int(content_length) > 2_000_000:
+        return JSONResponse(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, content={"detail": "Request too large."})
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "SAMEORIGIN"
+    response.headers["Referrer-Policy"] = "same-origin"
+    if request.url.path.startswith("/admin"):
+        response.headers["Cache-Control"] = "no-store"
+    return response
+
+
 def _adapter_for_channel(channel: str, client_code: str = "travel_alfalah"):
     configs = _load_tenant_configs_or_404(client_code)
     channel_settings = configs["channel"].get("channels", {}).get(channel, {})
@@ -81,14 +95,58 @@ async def admin_tenant_index():
     body {{ margin: 0; font-family: Arial, Helvetica, sans-serif; background: #f6f7f9; color: #17202a; }}
     main {{ max-width: 760px; margin: 0 auto; padding: 32px 18px; }}
     h1 {{ font-size: 22px; margin: 0 0 18px; }}
+    section {{ margin-top: 22px; }}
     ul {{ list-style: none; padding: 0; margin: 0; border: 1px solid #d9dee7; background: #fff; }}
     li {{ display: flex; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid #d9dee7; }}
     li:last-child {{ border-bottom: 0; }}
     a {{ color: #2458a7; font-weight: 700; text-decoration: none; }}
     span {{ color: #617082; font-family: monospace; }}
+    .form {{ display: grid; gap: 8px; border: 1px solid #d9dee7; background: #fff; padding: 14px; }}
+    input {{ height: 36px; border: 1px solid #d9dee7; border-radius: 6px; padding: 0 10px; }}
+    button {{ height: 36px; border: 0; border-radius: 6px; background: #177245; color: #fff; font-weight: 700; cursor: pointer; }}
+    pre {{ white-space: pre-wrap; color: #617082; }}
   </style>
 </head>
-<body><main><h1>HalloTravel Admin</h1><ul>{links or "<li>Belum ada tenant aktif.</li>"}</ul></main></body>
+<body>
+<main>
+  <h1>HalloTravel Admin</h1>
+  <ul>{links or "<li>Belum ada tenant aktif.</li>"}</ul>
+  <section>
+    <h1>Tambah Tenant</h1>
+    <div class="form">
+      <input id="token" type="password" placeholder="Admin token">
+      <input id="clientCode" placeholder="client_code, contoh: travel_baru">
+      <input id="brandName" placeholder="Nama travel / brand">
+      <input id="botName" placeholder="Nama bot" value="Admin AI">
+      <input id="adminPhone" placeholder="Nomor admin, contoh: 628xxx">
+      <input id="starsenderEnv" placeholder="Env Starsender" value="STARSENDER_API_KEY">
+      <input id="geminiEnv" placeholder="Env Gemini" value="GEMINI_API_KEY">
+      <button id="createTenant">Buat Tenant</button>
+      <pre id="result"></pre>
+    </div>
+  </section>
+</main>
+<script>
+  document.getElementById("createTenant").addEventListener("click", async () => {{
+    const payload = {{
+      client_code: document.getElementById("clientCode").value.trim(),
+      brand_name: document.getElementById("brandName").value.trim(),
+      bot_name: document.getElementById("botName").value.trim() || "Admin AI",
+      admin_phone: document.getElementById("adminPhone").value.trim(),
+      starsender_api_key_env: document.getElementById("starsenderEnv").value.trim() || "STARSENDER_API_KEY",
+      gemini_api_key_env: document.getElementById("geminiEnv").value.trim() || "GEMINI_API_KEY",
+    }};
+    const token = document.getElementById("token").value.trim();
+    const res = await fetch(`/admin/api/tenants?token=${{encodeURIComponent(token)}}`, {{
+      method: "POST",
+      headers: {{"Content-Type": "application/json"}},
+      body: JSON.stringify(payload),
+    }});
+    document.getElementById("result").textContent = JSON.stringify(await res.json(), null, 2);
+    if (res.ok) setTimeout(() => location.reload(), 800);
+  }});
+</script>
+</body>
 </html>""")
 
 @app.get("/channels/{channel}/health", status_code=status.HTTP_200_OK)

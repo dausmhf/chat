@@ -48,11 +48,19 @@ class ClientConfigManager:
         if base_dir is None:
             # Default to the directory where clients folder sits
             self.base_dir = Path(__file__).parent.parent.resolve()
+            self.storage_dir = Path(os.getenv("STORAGE_ROOT", "./storage")).resolve()
         else:
             self.base_dir = Path(base_dir)
+            self.storage_dir = Path(base_dir)
 
     def get_client_dir(self, client_id: str) -> Path:
+        persistent_dir = self.storage_dir / "clients" / client_id
+        if persistent_dir.exists():
+            return persistent_dir
         return self.base_dir / "clients" / client_id
+
+    def get_writable_client_dir(self, client_id: str) -> Path:
+        return self.storage_dir / "clients" / client_id
 
     def is_valid_client_id(self, client_id: str) -> bool:
         return bool(re.fullmatch(r"[a-z0-9][a-z0-9_-]{1,79}", client_id or ""))
@@ -60,16 +68,20 @@ class ClientConfigManager:
     def client_exists(self, client_id: str) -> bool:
         if not self.is_valid_client_id(client_id):
             return False
-        return (self.get_client_dir(client_id) / "config" / "client_config.json").exists()
+        return any(
+            (root / "clients" / client_id / "config" / "client_config.json").exists()
+            for root in [self.storage_dir, self.base_dir]
+        )
 
     def list_client_ids(self) -> List[str]:
-        clients_dir = self.base_dir / "clients"
-        if not clients_dir.exists():
-            return []
-        client_ids: List[str] = []
-        for path in clients_dir.iterdir():
-            if path.is_dir() and self.client_exists(path.name):
-                client_ids.append(path.name)
+        client_ids = set()
+        for root in [self.storage_dir, self.base_dir]:
+            clients_dir = root / "clients"
+            if not clients_dir.exists():
+                continue
+            for path in clients_dir.iterdir():
+                if path.is_dir() and self.client_exists(path.name):
+                    client_ids.add(path.name)
         return sorted(client_ids)
 
     def load_json_config(self, client_id: str, filename: str) -> Dict[str, Any]:
