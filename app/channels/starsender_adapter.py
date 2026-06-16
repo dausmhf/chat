@@ -8,7 +8,7 @@ from app.channels.base_adapter import ChannelAdapter, MessageEvent, SendResult, 
 class StarsenderAdapter(ChannelAdapter):
     def __init__(self, api_key: str = settings.starsender_api_key):
         self.api_key = api_key
-        self.api_url = "https://starsender.id/api/v2/send" # Example API endpoint for Starsender
+        self.api_url = "https://starsender.online/api"
 
     def parse_incoming(self, payload: dict) -> MessageEvent:
         """
@@ -57,8 +57,7 @@ class StarsenderAdapter(ChannelAdapter):
         Sends text message to WhatsApp via Starsender.
         """
         payload = {
-            "apikey": self.api_key,
-            "to": conversation_id,
+            "tujuan": conversation_id,
             "message": text
         }
         try:
@@ -66,14 +65,18 @@ class StarsenderAdapter(ChannelAdapter):
             if self.api_key == "mock_key":
                 return SendResult(success=True, message_id="mock_starsender_msg_id")
 
-            # Actual call
-            response = httpx.post(self.api_url, json=payload, timeout=10.0)
-            if response.status_code == 200:
-                resp_json = response.json()
-                if resp_json.get("status") == "success" or resp_json.get("message") == "success":
-                    return SendResult(success=True, message_id=resp_json.get("messageId"))
-                return SendResult(success=False, error_message=resp_json.get("error", "Failed request"))
-            return SendResult(success=False, error_message=f"HTTP Status {response.status_code}")
+            headers = {"apikey": self.api_key}
+            response = httpx.post(f"{self.api_url}/sendText", headers=headers, data=payload, timeout=10.0)
+            if response.status_code not in {200, 201}:
+                return SendResult(success=False, error_message=f"HTTP Status {response.status_code}: {response.text[:200]}")
+
+            resp_json = _safe_json(response)
+            if _looks_successful(resp_json, response.text):
+                return SendResult(
+                    success=True,
+                    message_id=_response_message_id(resp_json),
+                )
+            return SendResult(success=False, error_message=str(resp_json or response.text[:200] or "Failed request"))
         except Exception as e:
             return SendResult(success=False, error_message=str(e))
 
@@ -84,8 +87,7 @@ class StarsenderAdapter(ChannelAdapter):
         # Starsender usually sends files via URL
         # Under mock or local path, we'd upload or link. Here we mock:
         payload = {
-            "apikey": self.api_key,
-            "to": conversation_id,
+            "tujuan": conversation_id,
             "file": file_path,
             "caption": caption
         }
@@ -93,11 +95,16 @@ class StarsenderAdapter(ChannelAdapter):
             if self.api_key == "mock_key":
                 return SendResult(success=True, message_id="mock_starsender_file_id")
 
-            response = httpx.post(f"{self.api_url}/file", json=payload, timeout=15.0)
-            if response.status_code == 200:
-                resp_json = response.json()
-                return SendResult(success=True, message_id=resp_json.get("messageId"))
-            return SendResult(success=False, error_message=f"HTTP Status {response.status_code}")
+            response = httpx.post(f"{self.api_url}/sendFile", headers={"apikey": self.api_key}, data=payload, timeout=15.0)
+            if response.status_code not in {200, 201}:
+                return SendResult(success=False, error_message=f"HTTP Status {response.status_code}: {response.text[:200]}")
+            resp_json = _safe_json(response)
+            if _looks_successful(resp_json, response.text):
+                return SendResult(
+                    success=True,
+                    message_id=_response_message_id(resp_json),
+                )
+            return SendResult(success=False, error_message=str(resp_json or response.text[:200] or "Failed request"))
         except Exception as e:
             return SendResult(success=False, error_message=str(e))
 
@@ -131,28 +138,34 @@ class StarsenderAdapter(ChannelAdapter):
                 latency_ms=1
             )
         
-        # Test ping to provider
-        try:
-            response = httpx.get("https://starsender.id/api/ping", params={"apikey": self.api_key}, timeout=5.0)
-            latency = int((time.time() - start_time) * 1000)
-            is_valid = response.status_code == 200
-            return ChannelHealthResult(
-                status="healthy" if is_valid else "unhealthy",
-                provider="starsender",
-                can_send_message=is_valid,
-                can_receive_webhook=True,
-                credential_valid=is_valid,
-                latency_ms=latency
-            )
-        except Exception as e:
-            latency = int((time.time() - start_time) * 1000)
-            return ChannelHealthResult(
-                status="unhealthy",
-                provider="starsender",
-                can_send_message=False,
-                can_receive_webhook=False,
-                credential_valid=False,
-                latency_ms=latency,
-                error_code="CONNECTION_ERROR",
-                recommended_action=str(e)
-            )
+        latency = int((time.time() - start_time) * 1000)
+        return ChannelHealthResult(
+            status="degraded",
+            provider="starsender",
+            can_send_message=True,
+            can_receive_webhook=True,
+            credential_valid=True,
+            latency_ms=latency,
+            recommended_action="Starsender does not expose a non-sending ping endpoint in this adapter; credentials are verified when sending."
+        )
+
+
+def _safe_json(response: httpx.Response) -> dict:
+    try:
+        payload = response.json()
+        return payload if isinstance(payload, dict) else {"data": payload}
+    except ValueError:
+        return {}
+
+
+def _looks_successful(payload: dict, raw_text: str) -> bool:
+    status = str(payload.get("status") or payload.get("success") or payload.get("message") or "").lower()
+    if status in {"true", "success", "sent", "ok", "200"}:
+        return True
+    return "success" in raw_text.lower() or "terkirim" in raw_text.lower()
+
+
+def _response_message_id(payload: dict) -> str:
+    data = payload.get("data")
+    data_id = data.get("id") if isinstance(data, dict) else ""
+    return str(payload.get("messageId") or payload.get("id") or data_id or "")
