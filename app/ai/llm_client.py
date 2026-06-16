@@ -17,7 +17,19 @@ class LLMClient:
         self.chat_model = ai_config.get("chat_model", "gpt-4o-mini")
         self.embedding_model = ai_config.get("embedding_model", "text-embedding-3-small")
         self.embedding_dimensions = int(ai_config.get("embedding_dimensions", 1536))
+        self.thinking_budget = ai_config.get("thinking_budget")
         self.timeout = float(ai_config.get("timeout_seconds", 25))
+
+    def _gemini_generation_config(self, temperature: float, max_tokens: int) -> Dict[str, Any]:
+        generation_config: Dict[str, Any] = {
+            "temperature": temperature,
+            "maxOutputTokens": max_tokens,
+        }
+        if self.thinking_budget is not None:
+            generation_config["thinkingConfig"] = {
+                "thinkingBudget": int(self.thinking_budget),
+            }
+        return generation_config
 
     def validate_models(self) -> bool:
         """
@@ -33,7 +45,7 @@ class LLMClient:
             params = {"key": self.api_key}
             data = {
                 "contents": [{"role": "user", "parts": [{"text": "ping"}]}],
-                "generationConfig": {"maxOutputTokens": 1, "temperature": 0.0},
+                "generationConfig": self._gemini_generation_config(0.0, 16),
             }
             try:
                 response = httpx.post(url, params=params, json=data, timeout=5.0)
@@ -134,10 +146,7 @@ class LLMClient:
         data = {
             "systemInstruction": {"parts": [{"text": system_prompt}]},
             "contents": contents,
-            "generationConfig": {
-                "temperature": temperature,
-                "maxOutputTokens": max_tokens,
-            },
+            "generationConfig": self._gemini_generation_config(temperature, max_tokens),
         }
 
         response = httpx.post(url, params=params, json=data, timeout=self.timeout)
