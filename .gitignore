@@ -8,7 +8,7 @@ __pycache__/
 .ruff_cache/
 venv/
 .venv/
-storage/
+/storage/
 clients/*/storage/
 clients/*/uploads/
 clients/*/invoices/
