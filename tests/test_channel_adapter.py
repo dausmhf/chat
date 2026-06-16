@@ -18,6 +18,25 @@ def test_starsender_parse_incoming():
     assert event.idempotency_key == "starsender:msg_test_123"
     assert event.channel == "starsender"
 
+def test_starsender_parse_incoming_generates_id_without_provider_message_id():
+    adapter = StarsenderAdapter()
+    first = adapter.parse_incoming({
+        "message": "Halo",
+        "phone": "628123456789",
+        "name": "Muhammad Firdaus",
+        "client_id": "travel_alfalah"
+    })
+    second = adapter.parse_incoming({
+        "message": "Saya mau tanya paket lain",
+        "phone": "628123456789",
+        "name": "Muhammad Firdaus",
+        "client_id": "travel_alfalah"
+    })
+
+    assert first.event_id.startswith("generated_")
+    assert first.event_id != "unknown_id"
+    assert first.idempotency_key != second.idempotency_key
+
 def test_starsender_send_text():
     adapter = StarsenderAdapter(api_key="mock_key")
     result = adapter.send_text("628123456789", "Halo Ayah/Bunda")

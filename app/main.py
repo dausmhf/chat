@@ -2,11 +2,12 @@ import time
 import uuid
 from typing import Optional
 from fastapi import Depends, FastAPI, Request, status
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel
 from app.config import settings
 from app.bootstrap import bootstrap_app
 from app.admin.admin_command_service import execute_bot_on, execute_mark_payment, execute_takeover
+from app.admin.dashboard import require_admin_token, router as admin_dashboard_router
 from app.channels.starsender_adapter import StarsenderAdapter
 from app.channels.waba_adapter import WabaCloudAdapter
 from app.conversation.orchestrator import process_incoming_message
@@ -19,6 +20,7 @@ app = FastAPI(
     version="1.0.0",
     description="Production-ready WhatsApp AI CS and Management Engine"
 )
+app.include_router(admin_dashboard_router)
 
 
 def _adapter_for_channel(channel: str):
@@ -48,6 +50,10 @@ async def health_check():
         "env": settings.app_env,
         "version": "1.0.0"
     }
+
+@app.get("/", status_code=status.HTTP_307_TEMPORARY_REDIRECT)
+async def dashboard_redirect():
+    return RedirectResponse(url="/admin/travel_alfalah/dashboard")
 
 @app.get("/channels/{channel}/health", status_code=status.HTTP_200_OK)
 async def channel_health(channel: str):
@@ -104,21 +110,36 @@ class MarkPaymentRequest(BaseModel):
 
 
 @app.post("/admin/{client_code}/bot-on", status_code=status.HTTP_200_OK)
-async def admin_bot_on(client_code: str, body: BotOnRequest, db: Session = Depends(get_db)):
+async def admin_bot_on(
+    client_code: str,
+    body: BotOnRequest,
+    _: None = Depends(require_admin_token),
+    db: Session = Depends(get_db),
+):
     client_uuid = get_or_create_client_uuid(db, client_code)
     success, message = execute_bot_on(db, client_uuid, body.conversation_id, body.reason, body.admin_id)
     return {"success": success, "message": message}
 
 
 @app.post("/admin/{client_code}/takeover", status_code=status.HTTP_200_OK)
-async def admin_takeover(client_code: str, body: TakeoverRequest, db: Session = Depends(get_db)):
+async def admin_takeover(
+    client_code: str,
+    body: TakeoverRequest,
+    _: None = Depends(require_admin_token),
+    db: Session = Depends(get_db),
+):
     client_uuid = get_or_create_client_uuid(db, client_code)
     success, message = execute_takeover(db, client_uuid, body.conversation_id, body.admin_id)
     return {"success": success, "message": message}
 
 
 @app.post("/admin/{client_code}/mark-payment", status_code=status.HTTP_200_OK)
-async def admin_mark_payment(client_code: str, body: MarkPaymentRequest, db: Session = Depends(get_db)):
+async def admin_mark_payment(
+    client_code: str,
+    body: MarkPaymentRequest,
+    _: None = Depends(require_admin_token),
+    db: Session = Depends(get_db),
+):
     client_uuid = get_or_create_client_uuid(db, client_code)
     success, message = execute_mark_payment(db, client_uuid, body.invoice_id, body.status, body.admin_id, body.note)
     return {"success": success, "message": message}

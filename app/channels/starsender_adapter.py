@@ -1,3 +1,5 @@
+import hashlib
+import json
 import time
 import os
 import httpx
@@ -22,10 +24,12 @@ class StarsenderAdapter(ChannelAdapter):
         #   "name": "Muhammad Firdaus",
         #   "client_id": "travel_alfalah" (or resolved by context)
         # }
-        msg_id = payload.get("messageId") or payload.get("message_id") or payload.get("id") or payload.get("key", {}).get("id", "unknown_id")
         phone = payload.get("phone") or payload.get("from") or payload.get("sender") or payload.get("remoteJid", "unknown_phone")
         name = payload.get("name") or payload.get("pushName") or payload.get("senderName", "WhatsApp User")
         text = payload.get("message") or payload.get("text") or payload.get("caption") or ""
+        msg_id = payload.get("messageId") or payload.get("message_id") or payload.get("id") or payload.get("key", {}).get("id")
+        if not msg_id:
+            msg_id = _fallback_message_id(payload, phone, text)
         client_id = payload.get("client_id", "travel_alfalah")
         file_url = payload.get("fileUrl") or payload.get("file_url") or payload.get("mediaUrl") or payload.get("url") or ""
         raw_type = (payload.get("messageType") or payload.get("type") or "").lower()
@@ -169,3 +173,24 @@ def _response_message_id(payload: dict) -> str:
     data = payload.get("data")
     data_id = data.get("id") if isinstance(data, dict) else ""
     return str(payload.get("messageId") or payload.get("id") or data_id or "")
+
+
+def _fallback_message_id(payload: dict, phone: str, text: str) -> str:
+    timestamp = (
+        payload.get("timestamp")
+        or payload.get("time")
+        or payload.get("created_at")
+        or payload.get("received_at")
+        or payload.get("date")
+        or ""
+    )
+    file_url = payload.get("fileUrl") or payload.get("file_url") or payload.get("mediaUrl") or payload.get("url") or ""
+    basis = {
+        "phone": phone,
+        "text": text,
+        "file_url": file_url,
+        "timestamp": timestamp,
+        "payload": payload if not timestamp else {},
+    }
+    raw = json.dumps(basis, sort_keys=True, default=str, ensure_ascii=True)
+    return "generated_" + hashlib.sha256(raw.encode("utf-8")).hexdigest()[:24]
