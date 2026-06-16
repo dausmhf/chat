@@ -4,6 +4,10 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 from app.storage import models
 
+
+def _to_pgvector_literal(values: List[float]) -> str:
+    return "[" + ",".join(f"{float(value):.12g}" for value in values) + "]"
+
 def search_similarity(
     db: Session,
     client_id: uuid.UUID,
@@ -14,25 +18,44 @@ def search_similarity(
     Performs cosine similarity search using pgvector in PostgreSQL.
     Returns a list of tuples containing (KnowledgeChunk, score).
     """
-    # Using pgvector cosine distance: score = 1 - (embedding <=> query_embedding)
-    # in SQLAlchemy, we can write:
+    if db.bind and db.bind.dialect.name != "postgresql":
+        return []
+
     try:
-        # Distance operator <=> is mapped to cosine_distance
-        distance_expression = models.KnowledgeChunk.embedding.cosine_distance(query_embedding)
-        results = db.query(
-            models.KnowledgeChunk,
-            (1 - distance_expression).label("score")
-        ).join(
-            models.KnowledgeDocument,
-            models.KnowledgeChunk.document_id == models.KnowledgeDocument.id
-        ).filter(
-            models.KnowledgeChunk.client_id == client_id,
-            models.KnowledgeDocument.is_active == True
-        ).order_by(
-            distance_expression
-        ).limit(top_k).all()
-        
-        return [(row[0], float(row[1])) for row in results]
+        query_vector = _to_pgvector_literal(query_embedding)
+        rows = db.execute(
+            text(
+                """
+                SELECT
+                    kc.id,
+                    1 - (kc.embedding <=> CAST(:query_embedding AS vector)) AS score
+                FROM knowledge_chunks kc
+                JOIN knowledge_documents kd ON kc.document_id = kd.id
+                WHERE kc.client_id = CAST(:client_id AS uuid)
+                  AND kd.is_active = TRUE
+                  AND kc.embedding IS NOT NULL
+                ORDER BY kc.embedding <=> CAST(:query_embedding AS vector)
+                LIMIT :top_k
+                """
+            ),
+            {
+                "client_id": str(client_id),
+                "query_embedding": query_vector,
+                "top_k": int(top_k),
+            },
+        ).mappings().all()
+
+        chunk_ids = [row["id"] for row in rows]
+        if not chunk_ids:
+            return []
+
+        chunks = db.query(models.KnowledgeChunk).filter(models.KnowledgeChunk.id.in_(chunk_ids)).all()
+        chunks_by_id = {str(chunk.id): chunk for chunk in chunks}
+        return [
+            (chunks_by_id[str(row["id"])], float(row["score"]))
+            for row in rows
+            if str(row["id"]) in chunks_by_id
+        ]
     except Exception as e:
         print(f"pgvector search_similarity failed (fallback to text-based mock if database has no pgvector extension): {str(e)}")
         # Return empty list in development if postgres doesn't support vector distance
