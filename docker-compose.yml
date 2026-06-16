@@ -8,8 +8,6 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: aics
-    ports:
-      - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -21,8 +19,6 @@ services:
   redis:
     image: redis:7-alpine
     container_name: aics-redis
-    ports:
-      - "6379:6379"
     volumes:
       - redisdata:/data
     healthcheck:

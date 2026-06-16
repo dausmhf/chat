@@ -15,4 +15,5 @@ clients/*/invoices/
 *.log
 tmp/
 tmp_*
+hallotravel-deploy.tar.gz
 .DS_Store
