@@ -270,6 +270,9 @@ def _answer_with_rag_or_package_data(
         except Exception as exc:
             print(f"ConversationOrchestrator: RAG retrieval failed: {str(exc)}")
 
+    if _requires_explicit_rag_context(text) and not retrieved_chunks:
+        return "Untuk detail itu saya bantu cekkan ke admin ya Ayah/Bunda, agar jawabannya sesuai itinerary terbaru dari travel.", True, rag_result, cache_hit
+
     package_context = _package_context(db, client_uuid)
     if package_context:
         retrieved_chunks.append(package_context)
@@ -295,6 +298,28 @@ def _answer_with_rag_or_package_data(
     if rag_result and 0.55 <= rag_result.confidence < 0.78 and not requires_handover:
         response = response.rstrip() + "\n\nKalau Ayah/Bunda ingin kepastian terakhir, saya bisa bantu teruskan ke admin."
     return response, requires_handover, rag_result, cache_hit
+
+
+def _requires_explicit_rag_context(text: str) -> bool:
+    lowered = text.lower()
+    operational_keywords = (
+        "makkah dulu",
+        "mekkah dulu",
+        "madinah dulu",
+        "hotel",
+        "maskapai",
+        "pesawat",
+        "tanggal berangkat",
+        "jadwal berangkat",
+        "seat",
+        "sisa kursi",
+        "fasilitas",
+        "boleh nggak",
+        "boleh gak",
+        "bisa nggak",
+        "bisa gak",
+    )
+    return any(keyword in lowered for keyword in operational_keywords)
 
 
 def _package_context(db: Session, client_uuid: uuid.UUID) -> str:

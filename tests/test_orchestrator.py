@@ -46,6 +46,22 @@ def test_orchestrator_booking_creates_invoice_and_outgoing_reply(test_db: Sessio
     assert invoice.payment_status == "unpaid"
 
 
+def test_itinerary_order_question_without_rag_goes_to_admin(test_db: Session):
+    payload = {
+        "messageId": "orch_itinerary_1",
+        "message": "Kalo Mekkah dulu boleh nggak?",
+        "phone": "628333333333",
+        "name": "Rani",
+        "client_id": "travel_alfalah",
+    }
+
+    result = process_incoming_message(test_db, "starsender", payload, send_reply=False)
+
+    assert result["status"] == "handover"
+    assert "admin" in result["reply"].lower()
+    assert "madinah terlebih dahulu" not in result["reply"].lower()
+
+
 def test_payment_evidence_without_invoice_does_not_lock(test_db: Session):
     client_uuid = uuid.UUID("11111111-1111-1111-1111-111111111111")
     conv = models.Conversation(
