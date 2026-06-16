@@ -1,0 +1,17 @@
+{
+  "active_channel": "starsender",
+  "channels": {
+    "starsender": {
+      "enabled": true,
+      "api_key_env": "STARSENDER_API_KEY",
+      "webhook_secret_env": "STARSENDER_WEBHOOK_SECRET"
+    },
+    "waba": {
+      "enabled": false,
+      "provider": "meta_cloud_api",
+      "access_token_env": "WABA_ACCESS_TOKEN",
+      "phone_number_id_env": "WABA_PHONE_NUMBER_ID",
+      "verify_token_env": "WABA_VERIFY_TOKEN"
+    }
+  }
+}

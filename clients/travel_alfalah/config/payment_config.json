@@ -1,0 +1,19 @@
+{
+  "manual_payment_only": true,
+  "auto_payment_confirmation": false,
+  "active_bank_account_version": "bank-v2026-07-01",
+  "bank_accounts": [
+    {
+      "bank_account_id": "bsi-main-001",
+      "version": "bank-v2026-07-01",
+      "bank_name": "Bank Syariah Indonesia",
+      "account_number": "1234567890",
+      "account_holder": "PT Travel Umroh Al-Falah",
+      "is_active": true,
+      "effective_from": "2026-07-01",
+      "effective_until": null
+    }
+  ],
+  "payment_instruction": "Transfer sesuai nominal invoice, lalu kirim bukti transfer untuk dicek admin.",
+  "verification_message": "Pembayaran akan diverifikasi manual oleh admin melalui mutasi rekening resmi."
+}

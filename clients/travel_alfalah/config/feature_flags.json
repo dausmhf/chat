@@ -1,0 +1,16 @@
+{
+  "ai_autoreply": true,
+  "rag_answering": true,
+  "booking_collection": true,
+  "passenger_collection": true,
+  "invoice_generation": true,
+  "manual_payment_verification": true,
+  "payment_gateway": false,
+  "admin_takeover": true,
+  "followup_scheduler": true,
+  "broadcast_segment": false,
+  "waba_channel": false,
+  "starsender_channel": true,
+  "rate_limiting": true,
+  "summary_generation": true
+}

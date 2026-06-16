@@ -1,0 +1,12 @@
+{
+  "client_id": "travel_alfalah",
+  "brand_name": "Travel Umroh Al-Falah",
+  "bot_name": "Admin AI Al-Falah",
+  "default_user_call": "Ayah/Bunda",
+  "tone": "ramah, islami, tenang, jelas, tidak memaksa",
+  "timezone": "Asia/Jakarta",
+  "default_language": "id",
+  "bot_enabled_default": true,
+  "max_memory_turns": 5,
+  "admin_group_id": "-100123456789"
+}

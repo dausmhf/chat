@@ -1,0 +1,124 @@
+version: "3.8"
+
+services:
+  db:
+    image: ankane/pgvector:v0.5.1
+    container_name: aics-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: aics
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: aics-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    container_name: aics-app
+    command: >
+      sh -c "python -m app.storage.migrate && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    ports:
+      - "8000:8000"
+    environment:
+      - APP_ENV=production
+      - APP_URL=${APP_URL:-http://localhost:8000}
+      - DATABASE_URL=${DATABASE_URL:-postgresql+pg8000://postgres:postgres@db:5432/aics}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
+      - STORAGE_ROOT=${STORAGE_ROOT:-/app/storage}
+      - LLM_API_KEY=${LLM_API_KEY:-mock_key}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-mock_key}
+      - STARSENDER_API_KEY=${STARSENDER_API_KEY:-mock_key}
+      - STARSENDER_WEBHOOK_SECRET=${STARSENDER_WEBHOOK_SECRET:-}
+      - WABA_ACCESS_TOKEN=${WABA_ACCESS_TOKEN:-mock_key}
+      - WABA_PHONE_NUMBER_ID=${WABA_PHONE_NUMBER_ID:-}
+      - WABA_VERIFY_TOKEN=${WABA_VERIFY_TOKEN:-}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-mock_key}
+      - ADMIN_DEFAULT_GROUP_ID=${ADMIN_DEFAULT_GROUP_ID:--100123456789}
+      - ADMIN_NOTIFICATION_PHONE=${ADMIN_NOTIFICATION_PHONE:-}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - shared-storage:/app/storage
+
+  celery_worker:
+    build: .
+    container_name: aics-worker
+    command: celery -A app.workers.queue.celery_app worker --loglevel=info
+    environment:
+      - APP_ENV=production
+      - APP_URL=${APP_URL:-http://localhost:8000}
+      - DATABASE_URL=${DATABASE_URL:-postgresql+pg8000://postgres:postgres@db:5432/aics}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
+      - STORAGE_ROOT=${STORAGE_ROOT:-/app/storage}
+      - LLM_API_KEY=${LLM_API_KEY:-mock_key}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-mock_key}
+      - STARSENDER_API_KEY=${STARSENDER_API_KEY:-mock_key}
+      - STARSENDER_WEBHOOK_SECRET=${STARSENDER_WEBHOOK_SECRET:-}
+      - WABA_ACCESS_TOKEN=${WABA_ACCESS_TOKEN:-mock_key}
+      - WABA_PHONE_NUMBER_ID=${WABA_PHONE_NUMBER_ID:-}
+      - WABA_VERIFY_TOKEN=${WABA_VERIFY_TOKEN:-}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-mock_key}
+      - ADMIN_DEFAULT_GROUP_ID=${ADMIN_DEFAULT_GROUP_ID:--100123456789}
+      - ADMIN_NOTIFICATION_PHONE=${ADMIN_NOTIFICATION_PHONE:-}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - shared-storage:/app/storage
+
+  celery_beat:
+    build: .
+    container_name: aics-beat
+    command: celery -A app.workers.queue.celery_app beat --loglevel=info
+    environment:
+      - APP_ENV=production
+      - APP_URL=${APP_URL:-http://localhost:8000}
+      - DATABASE_URL=${DATABASE_URL:-postgresql+pg8000://postgres:postgres@db:5432/aics}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
+      - STORAGE_ROOT=${STORAGE_ROOT:-/app/storage}
+      - LLM_API_KEY=${LLM_API_KEY:-mock_key}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-mock_key}
+      - STARSENDER_API_KEY=${STARSENDER_API_KEY:-mock_key}
+      - STARSENDER_WEBHOOK_SECRET=${STARSENDER_WEBHOOK_SECRET:-}
+      - WABA_ACCESS_TOKEN=${WABA_ACCESS_TOKEN:-mock_key}
+      - WABA_PHONE_NUMBER_ID=${WABA_PHONE_NUMBER_ID:-}
+      - WABA_VERIFY_TOKEN=${WABA_VERIFY_TOKEN:-}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-mock_key}
+      - ADMIN_DEFAULT_GROUP_ID=${ADMIN_DEFAULT_GROUP_ID:--100123456789}
+      - ADMIN_NOTIFICATION_PHONE=${ADMIN_NOTIFICATION_PHONE:-}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - shared-storage:/app/storage
+
+volumes:
+  pgdata:
+  redisdata:
+  shared-storage:

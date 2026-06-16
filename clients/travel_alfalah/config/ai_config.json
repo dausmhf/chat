@@ -1,0 +1,55 @@
+{
+  "provider": "gemini",
+  "base_url": "https://generativelanguage.googleapis.com/v1beta",
+  "api_key_env": "GEMINI_API_KEY",
+  "chat_model": "gemini-2.0-flash",
+  "embedding_model": "text-embedding-004",
+  "temperature": 0.25,
+  "max_output_tokens": 650,
+  "intent_model": "gemini-2.0-flash",
+  "summary_model": "gemini-2.0-flash",
+  "fallback_model": "gemini-2.0-flash",
+  "timeout_seconds": 25,
+  "max_retries": 2,
+  "privacy_mode": {
+    "send_full_chat_history": false,
+    "max_memory_turns": 5,
+    "redact_sensitive_documents": true
+  },
+  "safety": {
+    "intent_confidence_min": 0.70,
+    "retrieval_score_min": 0.55,
+    "retrieval_score_confident": 0.75,
+    "block_payment_confirmation": true,
+    "block_unknown_bank_account": true
+  },
+  "token_optimization": {
+    "enabled": true,
+    "max_memory_turns": 5,
+    "rag_top_k": 3,
+    "max_context_chunks": 5,
+    "max_chunk_tokens": 500,
+    "max_input_tokens": 6000,
+    "max_output_tokens": 700,
+    "summary_max_tokens": 500,
+    "context_overflow_strategy": "compress_then_reduce_chunks_then_handover",
+    "use_rule_based_intent_first": true,
+    "use_template_response_first": true,
+    "response_cache_enabled": true,
+    "response_cache_ttl_minutes": 60,
+    "cache_key_scope": [
+      "client_id",
+      "normalized_question",
+      "knowledge_version",
+      "brand_voice_version"
+    ],
+    "log_token_usage": true
+  },
+  "model_routing": {
+    "intent": "cheap_fast_model",
+    "summary": "cheap_fast_model",
+    "chat": "main_chat_model",
+    "safety_review": "stable_model",
+    "fallback": "stable_model"
+  }
+}
