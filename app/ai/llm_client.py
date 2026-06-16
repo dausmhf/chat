@@ -16,6 +16,7 @@ class LLMClient:
         
         self.chat_model = ai_config.get("chat_model", "gpt-4o-mini")
         self.embedding_model = ai_config.get("embedding_model", "text-embedding-3-small")
+        self.embedding_dimensions = int(ai_config.get("embedding_dimensions", 1536))
         self.timeout = float(ai_config.get("timeout_seconds", 25))
 
     def validate_models(self) -> bool:
@@ -161,7 +162,10 @@ class LLMClient:
         if self.provider == "gemini":
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.embedding_model}:embedContent"
             params = {"key": self.api_key}
-            data = {"content": {"parts": [{"text": text}]}}
+            data = {
+                "content": {"parts": [{"text": text}]},
+                "outputDimensionality": self.embedding_dimensions,
+            }
             response = httpx.post(url, params=params, json=data, timeout=self.timeout)
             if response.status_code != 200:
                 raise RuntimeError(f"Gemini embedding API returned status {response.status_code}: {response.text}")
