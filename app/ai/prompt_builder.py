@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 def build_system_prompt(
     client_id: str,
@@ -59,6 +59,3 @@ Aturan Tambahan:
 - Jangan pernah katakan "pembayaran berhasil" atau "lunas". Konfirmasi pembayaran selalu dilakukan secara manual oleh admin.
 """
     return prompt.strip()
-
-# Type annotation import check
-from typing import Optional

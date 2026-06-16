@@ -1,4 +1,5 @@
 import datetime
+import uuid
 from sqlalchemy.orm import Session
 from app.storage import models
 
@@ -48,9 +49,8 @@ def transition_status(
     db.refresh(conversation)
     return conversation
 
-def uuid_from_str(val: str) -> datetime.UUID:
+def uuid_from_str(val: str) -> uuid.UUID:
     try:
-        import uuid
         return uuid.UUID(val)
     except ValueError:
         return None
