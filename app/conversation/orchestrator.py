@@ -10,8 +10,7 @@ from app.ai.prompt_builder import build_system_prompt
 from app.ai.safety_guard import validate_response
 from app.business.booking_service import calculate_and_create_booking
 from app.business.invoice_service import create_booking_invoice
-from app.channels.starsender_adapter import StarsenderAdapter
-from app.channels.waba_adapter import WabaCloudAdapter
+from app.channels.factory import build_channel_adapter
 from app.config import client_config_manager
 from app.conversation.state_manager import can_bot_reply
 from app.ingestion.event_handler import get_or_create_client_uuid, handle_incoming_webhook
@@ -55,7 +54,7 @@ def process_incoming_message(
         models.LeadProfile.client_id == client_uuid,
     ).first()
 
-    adapter = _get_adapter(channel)
+    adapter = _get_adapter(channel, configs["channel"])
 
     file_size = _payload_file_size(payload)
     if file_size and file_size > 10 * 1024 * 1024:
@@ -428,12 +427,8 @@ def _should_cache_rag_answer(
     return bool(rag_result.sources and rag_result.confidence >= 0.78)
 
 
-def _get_adapter(channel: str) -> Any:
-    if channel == "starsender":
-        return StarsenderAdapter()
-    if channel == "waba":
-        return WabaCloudAdapter()
-    raise ValueError(f"Unsupported channel: {channel}")
+def _get_adapter(channel: str, channel_config: Dict[str, Any]) -> Any:
+    return build_channel_adapter(channel, channel_config)
 
 
 def _get_message(db: Session, message_id: str, client_uuid: uuid.UUID) -> models.Message:

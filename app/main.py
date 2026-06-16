@@ -1,15 +1,14 @@
 import time
 import uuid
 from typing import Optional
-from fastapi import Depends, FastAPI, Request, status
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi import Depends, FastAPI, HTTPException, Request, status
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel
-from app.config import settings
+from app.config import client_config_manager, settings
 from app.bootstrap import bootstrap_app
 from app.admin.admin_command_service import execute_bot_on, execute_mark_payment, execute_takeover
 from app.admin.dashboard import require_admin_token, router as admin_dashboard_router
-from app.channels.starsender_adapter import StarsenderAdapter
-from app.channels.waba_adapter import WabaCloudAdapter
+from app.channels.factory import build_channel_adapter
 from app.conversation.orchestrator import process_incoming_message
 from app.ingestion.event_handler import get_or_create_client_uuid
 from app.storage.database import get_db
@@ -23,12 +22,18 @@ app = FastAPI(
 app.include_router(admin_dashboard_router)
 
 
-def _adapter_for_channel(channel: str):
-    if channel == "starsender":
-        return StarsenderAdapter()
-    if channel == "waba":
-        return WabaCloudAdapter()
-    raise ValueError(f"Unsupported channel: {channel}")
+def _adapter_for_channel(channel: str, client_code: str = "travel_alfalah"):
+    configs = _load_tenant_configs_or_404(client_code)
+    channel_settings = configs["channel"].get("channels", {}).get(channel, {})
+    if not channel_settings or not channel_settings.get("enabled", False):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Channel '{channel}' is not enabled for tenant '{client_code}'.")
+    return build_channel_adapter(channel, configs["channel"])
+
+
+def _load_tenant_configs_or_404(client_code: str):
+    if not client_config_manager.client_exists(client_code):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Tenant '{client_code}' is not configured.")
+    return client_config_manager.load_all_configs(client_code)
 
 # Startup event logging
 @app.on_event("startup")
@@ -53,18 +58,51 @@ async def health_check():
 
 @app.get("/", status_code=status.HTTP_307_TEMPORARY_REDIRECT)
 async def dashboard_redirect():
-    return RedirectResponse(url="/admin/travel_alfalah/dashboard")
+    return RedirectResponse(url="/admin")
+
+
+@app.get("/admin", response_class=HTMLResponse)
+async def admin_tenant_index():
+    tenants = []
+    for client_code in client_config_manager.list_client_ids():
+        configs = client_config_manager.load_all_configs(client_code)
+        tenants.append((client_code, configs["client"].get("brand_name", client_code)))
+    links = "".join(
+        f'<li><a href="/admin/{code}/dashboard">{brand}</a><span>{code}</span></li>'
+        for code, brand in tenants
+    )
+    return HTMLResponse(f"""<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HalloTravel Tenants</title>
+  <style>
+    body {{ margin: 0; font-family: Arial, Helvetica, sans-serif; background: #f6f7f9; color: #17202a; }}
+    main {{ max-width: 760px; margin: 0 auto; padding: 32px 18px; }}
+    h1 {{ font-size: 22px; margin: 0 0 18px; }}
+    ul {{ list-style: none; padding: 0; margin: 0; border: 1px solid #d9dee7; background: #fff; }}
+    li {{ display: flex; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid #d9dee7; }}
+    li:last-child {{ border-bottom: 0; }}
+    a {{ color: #2458a7; font-weight: 700; text-decoration: none; }}
+    span {{ color: #617082; font-family: monospace; }}
+  </style>
+</head>
+<body><main><h1>HalloTravel Admin</h1><ul>{links or "<li>Belum ada tenant aktif.</li>"}</ul></main></body>
+</html>""")
 
 @app.get("/channels/{channel}/health", status_code=status.HTTP_200_OK)
-async def channel_health(channel: str):
-    adapter = _adapter_for_channel(channel)
+async def channel_health(channel: str, client_code: str = "travel_alfalah"):
+    adapter = _adapter_for_channel(channel, client_code)
     return adapter.health_check().dict()
 
 @app.get("/webhooks/waba", status_code=status.HTTP_200_OK)
 async def verify_waba_webhook(request: Request):
     params = request.query_params
     verify_token = params.get("hub.verify_token")
-    expected = __import__("os").getenv("WABA_VERIFY_TOKEN", "")
+    client_code = params.get("client_code", "travel_alfalah")
+    configs = _load_tenant_configs_or_404(client_code)
+    expected = build_channel_adapter("waba", configs["channel"]).verify_token
     if expected and verify_token == expected:
         return int(params.get("hub.challenge", "0"))
     return JSONResponse(status_code=status.HTTP_403_FORBIDDEN, content={"detail": "Invalid verify token"})
@@ -72,8 +110,9 @@ async def verify_waba_webhook(request: Request):
 @app.post("/webhooks/{channel}", status_code=status.HTTP_200_OK)
 async def receive_webhook(channel: str, request: Request, db: Session = Depends(get_db)):
     payload = await request.json()
+    client_code = payload.get("client_id", "travel_alfalah")
     headers = dict(request.headers)
-    adapter = _adapter_for_channel(channel)
+    adapter = _adapter_for_channel(channel, client_code)
     if not adapter.validate_signature(payload, headers):
         return JSONResponse(status_code=status.HTTP_401_UNAUTHORIZED, content={"detail": "Invalid webhook signature"})
     result = process_incoming_message(db, channel, payload, headers=headers, send_reply=True)
@@ -81,10 +120,11 @@ async def receive_webhook(channel: str, request: Request, db: Session = Depends(
 
 @app.post("/webhooks/{channel}/{client_code}", status_code=status.HTTP_200_OK)
 async def receive_client_webhook(channel: str, client_code: str, request: Request, db: Session = Depends(get_db)):
+    _load_tenant_configs_or_404(client_code)
     payload = await request.json()
     payload["client_id"] = client_code
     headers = dict(request.headers)
-    adapter = _adapter_for_channel(channel)
+    adapter = _adapter_for_channel(channel, client_code)
     if not adapter.validate_signature(payload, headers):
         return JSONResponse(status_code=status.HTTP_401_UNAUTHORIZED, content={"detail": "Invalid webhook signature"})
     result = process_incoming_message(db, channel, payload, headers=headers, send_reply=True)

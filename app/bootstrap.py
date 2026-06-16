@@ -46,8 +46,12 @@ def bootstrap_app():
     except Exception as e:
         print(f"Bootstrap: Warning - migration check failed (database might be offline): {str(e)}")
 
-    # In a real environment, we'd scan clients folder. For default/smoke test, check travel_alfalah
-    validate_client_config("travel_alfalah")
+    client_ids = client_config_manager.list_client_ids()
+    if not client_ids:
+        print("CRITICAL ERROR: No configured clients found under clients/*/config.")
+        sys.exit(1)
+    for client_id in client_ids:
+        validate_client_config(client_id)
     print("Bootstrap: System checks passed successfully.")
 
 if __name__ == "__main__":

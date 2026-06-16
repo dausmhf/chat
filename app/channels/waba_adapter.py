@@ -9,9 +9,15 @@ class WabaCloudAdapter(ChannelAdapter):
     """
     Adapter for Meta WhatsApp Business API Cloud API.
     """
-    def __init__(self, access_token: str = settings.waba_access_token):
+    def __init__(
+        self,
+        access_token: str = settings.waba_access_token,
+        phone_number_id: Optional[str] = None,
+        verify_token: Optional[str] = None,
+    ):
         self.access_token = access_token
-        self.phone_number_id = os.getenv("WABA_PHONE_NUMBER_ID", "")
+        self.phone_number_id = phone_number_id if phone_number_id is not None else os.getenv("WABA_PHONE_NUMBER_ID", "")
+        self.verify_token = verify_token if verify_token is not None else os.getenv("WABA_VERIFY_TOKEN", "")
         self.graph_version = os.getenv("WABA_GRAPH_VERSION", "v19.0")
 
     def parse_incoming(self, payload: dict) -> MessageEvent:

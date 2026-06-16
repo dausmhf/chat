@@ -8,8 +8,9 @@ from app.config import settings
 from app.channels.base_adapter import ChannelAdapter, MessageEvent, SendResult, SenderIdentity, ChannelHealthResult
 
 class StarsenderAdapter(ChannelAdapter):
-    def __init__(self, api_key: str = settings.starsender_api_key):
+    def __init__(self, api_key: str = settings.starsender_api_key, webhook_secret: str = ""):
         self.api_key = api_key
+        self.webhook_secret = webhook_secret
         self.api_url = "https://starsender.online/api"
 
     def parse_incoming(self, payload: dict) -> MessageEvent:
@@ -121,7 +122,7 @@ class StarsenderAdapter(ChannelAdapter):
         return SenderIdentity(phone=phone, name=name, channel_user_id=phone)
 
     def validate_signature(self, payload: dict, headers: dict) -> bool:
-        expected_secret = os.getenv("STARSENDER_WEBHOOK_SECRET")
+        expected_secret = self.webhook_secret or os.getenv("STARSENDER_WEBHOOK_SECRET")
         if not expected_secret:
             return True
         provided = headers.get("x-webhook-secret") or headers.get("X-Webhook-Secret") or headers.get("x-starsender-secret")

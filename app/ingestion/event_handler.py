@@ -3,6 +3,7 @@ import uuid
 from typing import Dict, Any, Optional
 from sqlalchemy.orm import Session
 from app.storage import models
+from app.config import client_config_manager
 from app.ingestion.message_normalizer import normalize_payload
 from app.ingestion.idempotency import verify_and_log_idempotency
 from app.ingestion.contact_resolver import resolve_contact_and_lead
@@ -10,20 +11,32 @@ from app.storage.repositories import ConversationRepository, MessageRepository
 
 def get_or_create_client_uuid(db: Session, client_code: str) -> uuid.UUID:
     """
-    Retrieves the client UUID for a given client code, or creates a dummy if not exists (for testing/development).
+    Retrieves the client UUID for a configured client code, creating the DB row from
+    clients/{client_code}/config/client_config.json when needed.
     """
+    if not client_config_manager.client_exists(client_code):
+        raise ValueError(f"Unknown client_code '{client_code}'.")
+
+    configs = client_config_manager.load_all_configs(client_code)
+    client_config = configs["client"]
     client = db.query(models.Client).filter(models.Client.client_code == client_code).first()
     if not client:
-        # Create a default testing client
         client = models.Client(
             client_code=client_code,
-            name=f"Travel Client {client_code}",
-            brand_name=f"Brand {client_code}",
-            status="active"
+            name=client_config.get("client_name") or client_config.get("brand_name") or client_code,
+            brand_name=client_config.get("brand_name") or client_config.get("client_name") or client_code,
+            timezone=client_config.get("timezone", "Asia/Jakarta"),
+            status=client_config.get("status", "active"),
         )
         db.add(client)
         db.commit()
         db.refresh(client)
+    else:
+        client.name = client_config.get("client_name") or client.name
+        client.brand_name = client_config.get("brand_name") or client.brand_name
+        client.timezone = client_config.get("timezone", client.timezone)
+        client.status = client_config.get("status", client.status)
+        db.commit()
     return client.id
 
 def handle_incoming_webhook(

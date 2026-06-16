@@ -2,10 +2,10 @@ import datetime
 import os
 import uuid
 from celery import Celery
-from app.config import settings
+from app.config import client_config_manager, settings
 from app.storage.database import SessionLocal
 from app.storage import models
-from app.channels.starsender_adapter import StarsenderAdapter
+from app.channels.factory import build_channel_adapter
 
 # Configure Celery with Redis broker/backend
 celery_app = Celery(
@@ -162,10 +162,16 @@ def task_process_admin_notifications():
             models.QueueJob.next_run_at <= datetime.datetime.now(datetime.timezone.utc)
         ).order_by(models.QueueJob.created_at.asc()).limit(25).all()
 
-        adapter = StarsenderAdapter()
-        admin_phone = os.getenv("ADMIN_NOTIFICATION_PHONE", settings.admin_default_group_id)
-
         for job in jobs:
+            client = db.query(models.Client).filter(models.Client.id == job.client_id).first()
+            if not client:
+                job.status = "dead_letter"
+                job.last_error = "Client not found for queued notification."
+                continue
+            configs = client_config_manager.load_all_configs(client.client_code)
+            active_channel = configs["channel"].get("active_channel", "starsender")
+            adapter = build_channel_adapter(active_channel, configs["channel"])
+            admin_phone = _admin_notification_target(client.client_code, configs["client"])
             delivery_text = _format_admin_notification(job.payload)
             send_result = adapter.send_text(admin_phone, delivery_text)
             if not send_result.success:
@@ -255,6 +261,17 @@ def task_process_due_followups():
         return {"status": "failed", "error": str(e)}
     finally:
         db.close()
+
+
+def _admin_notification_target(client_code: str, client_config: dict) -> str:
+    tenant_env = "ADMIN_NOTIFICATION_PHONE_" + "".join(ch if ch.isalnum() else "_" for ch in client_code.upper())
+    return (
+        os.getenv(tenant_env)
+        or os.getenv("ADMIN_NOTIFICATION_PHONE")
+        or client_config.get("admin_notification_phone")
+        or client_config.get("admin_group_id")
+        or settings.admin_default_group_id
+    )
 
 
 def _format_admin_notification(payload: dict) -> str:

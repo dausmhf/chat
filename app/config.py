@@ -1,7 +1,8 @@
 import os
 import json
+import re
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, Any, List, Optional
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 
@@ -52,6 +53,24 @@ class ClientConfigManager:
 
     def get_client_dir(self, client_id: str) -> Path:
         return self.base_dir / "clients" / client_id
+
+    def is_valid_client_id(self, client_id: str) -> bool:
+        return bool(re.fullmatch(r"[a-z0-9][a-z0-9_-]{1,79}", client_id or ""))
+
+    def client_exists(self, client_id: str) -> bool:
+        if not self.is_valid_client_id(client_id):
+            return False
+        return (self.get_client_dir(client_id) / "config" / "client_config.json").exists()
+
+    def list_client_ids(self) -> List[str]:
+        clients_dir = self.base_dir / "clients"
+        if not clients_dir.exists():
+            return []
+        client_ids: List[str] = []
+        for path in clients_dir.iterdir():
+            if path.is_dir() and self.client_exists(path.name):
+                client_ids.append(path.name)
+        return sorted(client_ids)
 
     def load_json_config(self, client_id: str, filename: str) -> Dict[str, Any]:
         path = self.get_client_dir(client_id) / "config" / filename

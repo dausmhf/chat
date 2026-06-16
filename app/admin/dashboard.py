@@ -7,7 +7,7 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
 from app.admin.admin_command_service import execute_bot_on, execute_takeover
-from app.config import settings
+from app.config import client_config_manager, settings
 from app.ingestion.event_handler import get_or_create_client_uuid
 from app.storage import models
 from app.storage.database import get_db
@@ -15,12 +15,12 @@ from app.storage.database import get_db
 router = APIRouter()
 
 
-def require_admin_token(request: Request, x_admin_token: Optional[str] = Header(default=None)) -> None:
-    expected = os.getenv("ADMIN_DASHBOARD_TOKEN", "")
+def require_admin_token(request: Request, client_code: Optional[str] = None, x_admin_token: Optional[str] = Header(default=None)) -> None:
+    expected = _admin_token_for_client(client_code or "")
     if not expected and settings.app_env == "production":
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="ADMIN_DASHBOARD_TOKEN is not configured.",
+            detail="Admin dashboard token is not configured.",
         )
     if not expected:
         return
@@ -32,6 +32,7 @@ def require_admin_token(request: Request, x_admin_token: Optional[str] = Header(
 
 @router.get("/admin/{client_code}/dashboard", response_class=HTMLResponse)
 async def admin_dashboard(client_code: str):
+    _ensure_client_exists(client_code)
     return HTMLResponse(_dashboard_html(client_code))
 
 
@@ -52,16 +53,23 @@ async def list_conversations(
     )
     result = []
     for conversation in conversations:
-        contact = db.query(models.Contact).filter(models.Contact.id == conversation.contact_id).first()
+        contact = db.query(models.Contact).filter(
+            models.Contact.client_id == client_uuid,
+            models.Contact.id == conversation.contact_id,
+        ).first()
         last_message = (
             db.query(models.Message)
-            .filter(models.Message.conversation_id == conversation.id)
+            .filter(
+                models.Message.client_id == client_uuid,
+                models.Message.conversation_id == conversation.id,
+            )
             .order_by(models.Message.created_at.desc())
             .first()
         )
         open_handover = (
             db.query(models.HandoverEvent)
             .filter(
+                models.HandoverEvent.client_id == client_uuid,
                 models.HandoverEvent.conversation_id == conversation.id,
                 models.HandoverEvent.status == "open",
             )
@@ -95,24 +103,27 @@ async def conversation_messages(
 ):
     client_uuid = get_or_create_client_uuid(db, client_code)
     conversation = _conversation_or_404(db, client_uuid, conversation_id)
-    contact = db.query(models.Contact).filter(models.Contact.id == conversation.contact_id).first()
+    contact = db.query(models.Contact).filter(
+        models.Contact.client_id == client_uuid,
+        models.Contact.id == conversation.contact_id,
+    ).first()
     rows = (
         db.query(models.Message)
-        .filter(models.Message.conversation_id == conversation.id)
+        .filter(models.Message.client_id == client_uuid, models.Message.conversation_id == conversation.id)
         .order_by(models.Message.created_at.desc())
         .limit(min(max(limit, 1), 200))
         .all()
     )
     handovers = (
         db.query(models.HandoverEvent)
-        .filter(models.HandoverEvent.conversation_id == conversation.id)
+        .filter(models.HandoverEvent.client_id == client_uuid, models.HandoverEvent.conversation_id == conversation.id)
         .order_by(models.HandoverEvent.triggered_at.desc())
         .limit(20)
         .all()
     )
     audits = (
         db.query(models.AuditLog)
-        .filter(models.AuditLog.entity_id == conversation.id)
+        .filter(models.AuditLog.client_id == client_uuid, models.AuditLog.entity_id == conversation.id)
         .order_by(models.AuditLog.created_at.desc())
         .limit(20)
         .all()
@@ -215,6 +226,20 @@ def _close_open_handovers(db: Session, client_uuid: uuid.UUID, conversation_id: 
 
 def _iso(value) -> str:
     return value.isoformat() if value else ""
+
+
+def _ensure_client_exists(client_code: str) -> None:
+    if not client_config_manager.client_exists(client_code):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Tenant '{client_code}' is not configured.")
+
+
+def _admin_token_for_client(client_code: str) -> str:
+    if client_code:
+        env_name = "ADMIN_DASHBOARD_TOKEN_" + "".join(ch if ch.isalnum() else "_" for ch in client_code.upper())
+        tenant_token = os.getenv(env_name, "")
+        if tenant_token:
+            return tenant_token
+    return os.getenv("ADMIN_DASHBOARD_TOKEN", "")
 
 
 def _dashboard_html(client_code: str) -> str:
