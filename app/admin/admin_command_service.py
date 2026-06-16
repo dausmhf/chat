@@ -1,6 +1,6 @@
 import datetime
 import uuid
-from typing import Tuple, Dict, Any
+from typing import Optional, Tuple, Dict, Any
 from sqlalchemy.orm import Session
 from app.storage import models
 from app.storage.repositories import ConversationRepository
@@ -147,6 +147,3 @@ def execute_mark_payment(
     db.commit()
 
     return True, f"Invoice {invoice.invoice_number} successfully marked as '{new_status}'."
-
-# Type imports
-from typing import Optional
