@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.admin.admin_command_service import execute_bot_on, execute_takeover
-from app.admin.tenant_service import create_tenant
+from app.admin.tenant_service import create_tenant, list_tenants, set_tenant_status, update_tenant
 from app.config import client_config_manager, settings
 from app.ingestion.event_handler import get_or_create_client_uuid
 from app.rag.ingestion_service import ingest_file_knowledge, ingest_text_knowledge, list_knowledge_documents
@@ -25,6 +25,16 @@ class TenantCreateRequest(BaseModel):
     admin_phone: Optional[str] = None
     starsender_api_key_env: str = "STARSENDER_API_KEY"
     gemini_api_key_env: str = "GEMINI_API_KEY"
+
+
+class TenantUpdateRequest(BaseModel):
+    brand_name: Optional[str] = Field(default=None, min_length=2, max_length=180)
+    bot_name: Optional[str] = Field(default=None, min_length=2, max_length=180)
+    admin_notification_phone: Optional[str] = None
+    starsender_api_key_env: Optional[str] = None
+    starsender_webhook_secret_env: Optional[str] = None
+    gemini_api_key_env: Optional[str] = None
+    status: Optional[str] = None
 
 
 class KnowledgeTextRequest(BaseModel):
@@ -73,6 +83,51 @@ async def create_tenant_endpoint(
             starsender_api_key_env=body.starsender_api_key_env,
             gemini_api_key_env=body.gemini_api_key_env,
         )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+@router.get("/admin/api/tenants")
+async def list_tenants_endpoint(
+    _: None = Depends(require_admin_token),
+    db: Session = Depends(get_db),
+):
+    return {"tenants": list_tenants(db)}
+
+
+@router.patch("/admin/api/tenants/{client_code}")
+async def update_tenant_endpoint(
+    client_code: str,
+    body: TenantUpdateRequest,
+    _: None = Depends(require_admin_token),
+    db: Session = Depends(get_db),
+):
+    try:
+        return update_tenant(db, client_code=client_code, **body.dict(exclude_unset=True))
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+@router.post("/admin/api/tenants/{client_code}/enable")
+async def enable_tenant_endpoint(
+    client_code: str,
+    _: None = Depends(require_admin_token),
+    db: Session = Depends(get_db),
+):
+    try:
+        return set_tenant_status(db, client_code, "active")
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+@router.post("/admin/api/tenants/{client_code}/disable")
+async def disable_tenant_endpoint(
+    client_code: str,
+    _: None = Depends(require_admin_token),
+    db: Session = Depends(get_db),
+):
+    try:
+        return set_tenant_status(db, client_code, "inactive")
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 

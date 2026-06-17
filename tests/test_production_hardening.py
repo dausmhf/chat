@@ -50,3 +50,25 @@ def test_client_production_config_requires_starsender_secret(monkeypatch):
 
     with pytest.raises(ValueError, match="STARSENDER_WEBHOOK_SECRET"):
         validate_client_production_config("travel_alfalah", configs)
+
+
+def test_inactive_client_skips_strict_production_env_validation(monkeypatch):
+    monkeypatch.delenv("GEMINI_MISSING", raising=False)
+    monkeypatch.delenv("STARSENDER_MISSING", raising=False)
+    monkeypatch.delenv("STARSENDER_SECRET_MISSING", raising=False)
+    configs = {
+        "client": {"status": "inactive"},
+        "ai": {"api_key_env": "GEMINI_MISSING"},
+        "channel": {
+            "active_channel": "starsender",
+            "channels": {
+                "starsender": {
+                    "enabled": True,
+                    "api_key_env": "STARSENDER_MISSING",
+                    "webhook_secret_env": "STARSENDER_SECRET_MISSING",
+                }
+            },
+        },
+    }
+
+    validate_client_production_config("paused_tenant", configs)

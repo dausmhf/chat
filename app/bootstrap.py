@@ -53,6 +53,10 @@ def validate_client_config(client_id: str):
 
 
 def validate_client_production_config(client_id: str, configs: dict) -> None:
+    client_config = configs.get("client", {})
+    if (client_config.get("status", "active") or "active").strip().lower() in {"inactive", "disabled", "off", "paused"}:
+        return
+
     ai_config = configs.get("ai", {})
     ai_key_env = ai_config.get("api_key_env", "GEMINI_API_KEY")
     if _is_placeholder(os.getenv(ai_key_env, "")):

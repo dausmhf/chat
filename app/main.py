@@ -8,6 +8,7 @@ from app.config import client_config_manager, settings
 from app.bootstrap import bootstrap_app
 from app.admin.admin_command_service import execute_bot_on, execute_mark_payment, execute_takeover
 from app.admin.dashboard import require_admin_token, router as admin_dashboard_router
+from app.admin.tenant_service import is_tenant_active, list_tenants
 from app.channels.factory import build_channel_adapter
 from app.channels.webhook_security import headers_with_query_secret
 from app.conversation.orchestrator import process_incoming_message
@@ -48,6 +49,8 @@ def _adapter_for_channel(channel: str, client_code: str = "travel_alfalah"):
 def _load_tenant_configs_or_404(client_code: str):
     if not client_config_manager.client_exists(client_code):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Tenant '{client_code}' is not configured.")
+    if not is_tenant_active(client_code):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=f"Tenant '{client_code}' is inactive.")
     return client_config_manager.load_all_configs(client_code)
 
 
@@ -81,58 +84,199 @@ async def dashboard_redirect():
 
 
 @app.get("/admin", response_class=HTMLResponse)
-async def admin_tenant_index():
-    tenants = []
-    for client_code in client_config_manager.list_client_ids():
-        configs = client_config_manager.load_all_configs(client_code)
-        tenants.append((client_code, configs["client"].get("brand_name", client_code)))
+async def admin_tenant_index(db: Session = Depends(get_db)):
+    tenants = list_tenants(db)
     links = "".join(
-        f'<li><a href="/admin/{code}/dashboard">{brand}</a><span>{code}</span></li>'
-        for code, brand in tenants
+        f'<li data-code="{tenant["client_code"]}"><a href="/admin/{tenant["client_code"]}/dashboard">{tenant["brand_name"]}</a><span>{tenant["client_code"]}</span><b class="{tenant["status"]}">{tenant["status"]}</b></li>'
+        for tenant in tenants
     )
     return HTMLResponse(f"""<!doctype html>
 <html lang="id">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>HalloTravel Tenants</title>
+  <title>HalloTravel Super Admin</title>
   <style>
-    body {{ margin: 0; font-family: Arial, Helvetica, sans-serif; background: #f6f7f9; color: #17202a; }}
-    main {{ max-width: 760px; margin: 0 auto; padding: 32px 18px; }}
-    h1 {{ font-size: 22px; margin: 0 0 18px; }}
-    section {{ margin-top: 22px; }}
-    ul {{ list-style: none; padding: 0; margin: 0; border: 1px solid #d9dee7; background: #fff; }}
-    li {{ display: flex; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid #d9dee7; }}
-    li:last-child {{ border-bottom: 0; }}
-    a {{ color: #2458a7; font-weight: 700; text-decoration: none; }}
-    span {{ color: #617082; font-family: monospace; }}
-    .form {{ display: grid; gap: 8px; border: 1px solid #d9dee7; background: #fff; padding: 14px; }}
-    input {{ height: 36px; border: 1px solid #d9dee7; border-radius: 6px; padding: 0 10px; }}
-    button {{ height: 36px; border: 0; border-radius: 6px; background: #177245; color: #fff; font-weight: 700; cursor: pointer; }}
-    pre {{ white-space: pre-wrap; color: #617082; }}
+    :root {{
+      --bg: #f6f7f9;
+      --panel: #ffffff;
+      --line: #d9dee7;
+      --text: #17202a;
+      --muted: #617082;
+      --green: #177245;
+      --red: #b3261e;
+      --blue: #2458a7;
+      --amber: #946200;
+    }}
+    * {{ box-sizing: border-box; }}
+    body {{ margin: 0; font-family: Arial, Helvetica, sans-serif; background: var(--bg); color: var(--text); }}
+    header {{ height: 58px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 18px; border-bottom: 1px solid var(--line); background: var(--panel); }}
+    main {{ display: grid; grid-template-columns: 360px 1fr; min-height: calc(100vh - 58px); }}
+    h1 {{ font-size: 18px; margin: 0; }}
+    h2 {{ font-size: 15px; margin: 0 0 10px; }}
+    a {{ color: var(--blue); font-weight: 700; text-decoration: none; }}
+    input, select {{ height: 36px; border: 1px solid var(--line); border-radius: 6px; padding: 0 10px; background: #fff; min-width: 0; }}
+    button {{ height: 36px; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--text); font-weight: 700; cursor: pointer; padding: 0 12px; }}
+    button.primary {{ background: var(--green); border-color: var(--green); color: #fff; }}
+    button.danger {{ background: var(--red); border-color: var(--red); color: #fff; }}
+    button.blue {{ background: var(--blue); border-color: var(--blue); color: #fff; }}
+    button:disabled {{ opacity: .5; cursor: not-allowed; }}
+    label {{ display: grid; gap: 5px; color: var(--muted); font-size: 12px; font-weight: 700; }}
+    pre {{ white-space: pre-wrap; color: var(--muted); margin: 0; }}
+    .top-actions {{ display: flex; align-items: center; gap: 8px; min-width: 320px; }}
+    .top-actions input {{ width: 220px; }}
+    .sidebar {{ border-right: 1px solid var(--line); background: var(--panel); overflow: auto; }}
+    .content {{ padding: 18px; overflow: auto; }}
+    .tenant-list {{ list-style: none; padding: 0; margin: 0; }}
+    .tenant-row {{ display: grid; gap: 6px; width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; height: auto; padding: 13px 14px; font-weight: 400; }}
+    .tenant-row.active-row {{ background: #eef4ff; }}
+    .row {{ display: flex; align-items: center; justify-content: space-between; gap: 10px; }}
+    .name {{ font-weight: 700; overflow-wrap: anywhere; }}
+    .code {{ color: var(--muted); font-family: monospace; font-size: 12px; }}
+    .badge {{ display: inline-flex; align-items: center; min-height: 22px; border: 1px solid var(--line); border-radius: 999px; padding: 0 8px; font-size: 12px; font-weight: 700; white-space: nowrap; }}
+    .badge.active, b.active {{ color: var(--green); border-color: #9fd3b8; background: #eefaf3; }}
+    .badge.inactive, b.inactive {{ color: var(--red); border-color: #ebb0ac; background: #fff1f0; }}
+    b.active, b.inactive {{ border: 1px solid; border-radius: 999px; padding: 2px 8px; font-size: 12px; }}
+    .panel {{ background: var(--panel); border: 1px solid var(--line); padding: 14px; margin-bottom: 14px; }}
+    .grid {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }}
+    .actions {{ display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }}
+    .static-list {{ padding: 12px 14px; border-bottom: 1px solid var(--line); }}
+    .static-list ul {{ list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 8px; }}
+    .static-list li {{ display: flex; justify-content: space-between; gap: 8px; }}
+    .empty {{ color: var(--muted); padding: 14px; }}
+    @media (max-width: 860px) {{
+      header {{ height: auto; padding: 12px; align-items: stretch; flex-direction: column; }}
+      main {{ grid-template-columns: 1fr; }}
+      .sidebar {{ border-right: 0; border-bottom: 1px solid var(--line); max-height: 42vh; }}
+      .grid {{ grid-template-columns: 1fr; }}
+      .top-actions {{ width: 100%; min-width: 0; }}
+      .top-actions input {{ flex: 1; width: auto; }}
+    }}
   </style>
 </head>
 <body>
+<header>
+  <h1>HalloTravel Super Admin</h1>
+  <div class="top-actions">
+    <input id="token" type="password" placeholder="Admin token">
+    <button id="saveToken">Simpan</button>
+    <button id="refresh" class="blue">Refresh</button>
+  </div>
+</header>
 <main>
-  <h1>HalloTravel Admin</h1>
-  <ul>{links or "<li>Belum ada tenant aktif.</li>"}</ul>
-  <section>
-    <h1>Tambah Tenant</h1>
-    <div class="form">
-      <input id="token" type="password" placeholder="Admin token">
-      <input id="clientCode" placeholder="client_code, contoh: travel_baru">
-      <input id="brandName" placeholder="Nama travel / brand">
-      <input id="botName" placeholder="Nama bot" value="Admin AI">
-      <input id="adminPhone" placeholder="Nomor admin, contoh: 628xxx">
-      <input id="starsenderEnv" placeholder="Env Starsender" value="STARSENDER_API_KEY">
-      <input id="geminiEnv" placeholder="Env Gemini" value="GEMINI_API_KEY">
-      <button id="createTenant">Buat Tenant</button>
-      <pre id="result"></pre>
+  <aside class="sidebar">
+    <div class="static-list">
+      <strong>Tenant</strong>
+      <ul>{links or "<li>Belum ada tenant.</li>"}</ul>
     </div>
+    <div id="tenantList" class="tenant-list"><div class="empty">Masukkan token untuk memuat kontrol.</div></div>
+  </aside>
+  <section class="content">
+    <div class="panel">
+      <h2>Edit Tenant</h2>
+      <div class="grid">
+        <label>Client Code<input id="editClientCode" disabled></label>
+        <label>Status<select id="editStatus"><option value="active">active</option><option value="inactive">inactive</option></select></label>
+        <label>Brand Name<input id="editBrandName"></label>
+        <label>Bot Name<input id="editBotName"></label>
+        <label>Admin Notification<input id="editAdminPhone"></label>
+        <label>Starsender API Env<input id="editStarsenderEnv"></label>
+        <label>Starsender Webhook Secret Env<input id="editWebhookSecretEnv"></label>
+        <label>Gemini API Env<input id="editGeminiEnv"></label>
+      </div>
+      <div class="actions">
+        <button id="saveTenant" class="primary" disabled>Simpan Edit</button>
+        <button id="enableTenant" class="primary" disabled>Aktifkan</button>
+        <button id="disableTenant" class="danger" disabled>Nonaktifkan</button>
+        <a id="dashboardLink" href="#">Buka Dashboard Tenant</a>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Tambah Tenant</h2>
+      <div class="grid">
+        <label>Client Code<input id="clientCode" placeholder="travel_baru"></label>
+        <label>Brand Name<input id="brandName" placeholder="Nama travel / brand"></label>
+        <label>Bot Name<input id="botName" value="Admin AI"></label>
+        <label>Admin Notification<input id="adminPhone" placeholder="628xxx"></label>
+        <label>Starsender API Env<input id="starsenderEnv" value="STARSENDER_API_KEY"></label>
+        <label>Gemini API Env<input id="geminiEnv" value="GEMINI_API_KEY"></label>
+      </div>
+      <div class="actions">
+        <button id="createTenant" class="primary">Buat Tenant</button>
+      </div>
+    </div>
+    <div class="panel"><pre id="result">Siap.</pre></div>
   </section>
 </main>
 <script>
-  document.getElementById("createTenant").addEventListener("click", async () => {{
+  let token = sessionStorage.getItem("adminToken") || "";
+  let tenants = [];
+  let selectedCode = "";
+  const result = document.getElementById("result");
+  const tokenInput = document.getElementById("token");
+  tokenInput.value = token;
+
+  function esc(value) {{
+    return String(value ?? "").replace(/[&<>"']/g, ch => ({{"&":"&amp;","<":"&lt;",">":"&gt;","\\"":"&quot;","'":"&#39;"}}[ch]));
+  }}
+  function show(value) {{
+    result.textContent = typeof value === "string" ? value : JSON.stringify(value, null, 2);
+  }}
+  async function request(path, options = {{}}) {{
+    const headers = Object.assign({{}}, options.headers || {{}});
+    if (token) headers["X-Admin-Token"] = token;
+    const res = await fetch(path, Object.assign({{}}, options, {{headers}}));
+    const text = await res.text();
+    let body = {{}};
+    try {{ body = text ? JSON.parse(text) : {{}}; }} catch {{ body = {{detail: text}}; }}
+    if (!res.ok) throw new Error(body.detail || text || `${{res.status}}`);
+    return body;
+  }}
+  function renderTenants() {{
+    const list = document.getElementById("tenantList");
+    if (!tenants.length) {{
+      list.innerHTML = '<div class="empty">Belum ada tenant.</div>';
+      return;
+    }}
+    list.innerHTML = tenants.map(t => `
+      <button class="tenant-row ${{t.client_code === selectedCode ? "active-row" : ""}}" data-code="${{esc(t.client_code)}}">
+        <div class="row"><span class="name">${{esc(t.brand_name)}}</span><span class="badge ${{esc(t.status)}}">${{esc(t.status)}}</span></div>
+        <div class="code">${{esc(t.client_code)}} · ${{esc(t.active_channel)}} · channel=${{t.channel_enabled ? "on" : "off"}}</div>
+      </button>
+    `).join("");
+    list.querySelectorAll(".tenant-row").forEach(btn => btn.addEventListener("click", () => selectTenant(btn.dataset.code)));
+  }}
+  function selectedTenant() {{
+    return tenants.find(t => t.client_code === selectedCode) || null;
+  }}
+  function selectTenant(code) {{
+    selectedCode = code;
+    const t = selectedTenant();
+    const disabled = !t;
+    document.getElementById("saveTenant").disabled = disabled;
+    document.getElementById("enableTenant").disabled = disabled || t.status === "active";
+    document.getElementById("disableTenant").disabled = disabled || t.status === "inactive";
+    if (!t) return;
+    document.getElementById("editClientCode").value = t.client_code;
+    document.getElementById("editStatus").value = t.status;
+    document.getElementById("editBrandName").value = t.brand_name || "";
+    document.getElementById("editBotName").value = t.bot_name || "";
+    document.getElementById("editAdminPhone").value = t.admin_notification_phone || "";
+    document.getElementById("editStarsenderEnv").value = t.starsender_api_key_env || "";
+    document.getElementById("editWebhookSecretEnv").value = t.starsender_webhook_secret_env || "";
+    document.getElementById("editGeminiEnv").value = t.gemini_api_key_env || "";
+    document.getElementById("dashboardLink").href = t.dashboard_url;
+    renderTenants();
+  }}
+  async function loadTenants() {{
+    const data = await request("/admin/api/tenants");
+    tenants = data.tenants || [];
+    if (!selectedCode && tenants[0]) selectedCode = tenants[0].client_code;
+    renderTenants();
+    selectTenant(selectedCode);
+    show("Tenant dimuat.");
+  }}
+  async function createTenant() {{
     const payload = {{
       client_code: document.getElementById("clientCode").value.trim(),
       brand_name: document.getElementById("brandName").value.trim(),
@@ -141,15 +285,54 @@ async def admin_tenant_index():
       starsender_api_key_env: document.getElementById("starsenderEnv").value.trim() || "STARSENDER_API_KEY",
       gemini_api_key_env: document.getElementById("geminiEnv").value.trim() || "GEMINI_API_KEY",
     }};
-    const token = document.getElementById("token").value.trim();
-    const res = await fetch("/admin/api/tenants", {{
+    const data = await request("/admin/api/tenants", {{
       method: "POST",
-      headers: {{"Content-Type": "application/json", "X-Admin-Token": token}},
+      headers: {{"Content-Type": "application/json"}},
       body: JSON.stringify(payload),
     }});
-    document.getElementById("result").textContent = JSON.stringify(await res.json(), null, 2);
-    if (res.ok) setTimeout(() => location.reload(), 800);
+    selectedCode = data.client_code;
+    await loadTenants();
+    show(data);
+  }}
+  async function saveTenant() {{
+    if (!selectedCode) return;
+    const payload = {{
+      status: document.getElementById("editStatus").value,
+      brand_name: document.getElementById("editBrandName").value.trim(),
+      bot_name: document.getElementById("editBotName").value.trim(),
+      admin_notification_phone: document.getElementById("editAdminPhone").value.trim(),
+      starsender_api_key_env: document.getElementById("editStarsenderEnv").value.trim(),
+      starsender_webhook_secret_env: document.getElementById("editWebhookSecretEnv").value.trim(),
+      gemini_api_key_env: document.getElementById("editGeminiEnv").value.trim(),
+    }};
+    const data = await request(`/admin/api/tenants/${{selectedCode}}`, {{
+      method: "PATCH",
+      headers: {{"Content-Type": "application/json"}},
+      body: JSON.stringify(payload),
+    }});
+    await loadTenants();
+    show(data);
+  }}
+  async function setStatus(action) {{
+    if (!selectedCode) return;
+    const data = await request(`/admin/api/tenants/${{selectedCode}}/${{action}}`, {{method: "POST"}});
+    await loadTenants();
+    show(data);
+  }}
+  function run(fn) {{
+    fn().catch(err => show(err.message));
+  }}
+  document.getElementById("saveToken").addEventListener("click", () => {{
+    token = tokenInput.value.trim();
+    sessionStorage.setItem("adminToken", token);
+    run(loadTenants);
   }});
+  document.getElementById("refresh").addEventListener("click", () => run(loadTenants));
+  document.getElementById("createTenant").addEventListener("click", () => run(createTenant));
+  document.getElementById("saveTenant").addEventListener("click", () => run(saveTenant));
+  document.getElementById("enableTenant").addEventListener("click", () => run(() => setStatus("enable")));
+  document.getElementById("disableTenant").addEventListener("click", () => run(() => setStatus("disable")));
+  if (token) run(loadTenants);
 </script>
 </body>
 </html>""")
