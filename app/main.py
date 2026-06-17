@@ -795,7 +795,7 @@ document.getElementById("refresh").addEventListener("click",loadTenants);
 if(token)loadTenants();
 </script>
 </body>
-</html>"""")
+</html>"""
 
 @app.get("/channels/{channel}/health", status_code=status.HTTP_200_OK)
 async def channel_health(channel: str, client_code: str = "travel_alfalah"):
