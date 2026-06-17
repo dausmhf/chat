@@ -127,26 +127,28 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
 @keyframes toastOut{from{opacity:1}to{opacity:0;transform:translateY(-8px)}}
 
 /* Layout */
-.app{display:grid;grid-template-columns:240px 1fr;height:100vh}
+.app{display:grid;grid-template-columns:268px 1fr;height:100vh}
+.svg-icon{width:18px;height:18px;display:inline-block;vertical-align:middle;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.icon-title{display:flex;align-items:center;gap:8px}
+.icon-title .svg-icon{width:19px;height:19px}
 
 /* Sidebar */
 .sidebar{background:var(--white);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
-.sidebar-brand{padding:24px 20px 20px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border)}
-.sidebar-brand .logo-icon{width:36px;height:36px;background:var(--primary);border-radius:10px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:16px}
+.sidebar-brand{height:72px;padding:0 18px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--border)}
+.sidebar-brand .logo-icon{width:38px;height:38px;background:var(--primary);border-radius:12px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:16px;box-shadow:0 8px 18px rgba(37,99,235,.22)}
 .sidebar-brand h1{font-size:16px;font-weight:800;color:var(--text);letter-spacing:-.3px}
 
-.sidebar-search{padding:16px 16px 8px}
-.sidebar-search input{width:100%;height:40px;border:1px solid var(--border);border-radius:10px;padding:0 14px 0 38px;font-size:13px;background:var(--bg);color:var(--text);outline:none;transition:var(--transition)}
+.sidebar-search{padding:18px 14px 10px;position:relative}
+.sidebar-search input{width:100%;height:42px;border:1px solid var(--border);border-radius:12px;padding:0 14px 0 40px;font-size:13px;background:#f8fafc;color:var(--text);outline:none;transition:var(--transition)}
 .sidebar-search input:focus{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-bg)}
-.sidebar-search{position:relative}
-.sidebar-search::after{content:"🔍";position:absolute;left:28px;top:50%;transform:translateY(-30%);font-size:13px;pointer-events:none}
+.sidebar-search .search-icon{position:absolute;left:27px;top:31px;width:16px;height:16px;color:var(--muted);pointer-events:none}
 
-.sidebar-nav{padding:8px 12px;display:flex;flex-direction:column;gap:2px}
+.sidebar-nav{padding:8px 12px;display:flex;flex-direction:column;gap:4px}
 .nav-label{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1.2px;padding:12px 8px 6px}
-.nav-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;font-size:13px;font-weight:500;color:var(--text2);cursor:pointer;transition:var(--transition);border:none;background:transparent;width:100%;text-align:left}
+.nav-item{display:flex;align-items:center;gap:11px;padding:11px 12px;border-radius:12px;font-size:13px;font-weight:600;color:var(--text2);cursor:pointer;transition:var(--transition);border:none;background:transparent;width:100%;text-align:left}
 .nav-item:hover{background:var(--bg);color:var(--text)}
 .nav-item.active{background:var(--primary);color:#fff;font-weight:600;box-shadow:0 2px 8px rgba(37,99,235,.3)}
-.nav-item .icon{font-size:18px;width:22px;text-align:center}
+.nav-item .icon{width:22px;height:22px;display:flex;align-items:center;justify-content:center}
 .nav-item .badge-count{margin-left:auto;background:var(--red);color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;min-width:20px;text-align:center}
 
 .sidebar-tenants{flex:1;overflow-y:auto;padding:0 12px 12px}
@@ -172,26 +174,26 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
 .main-area{display:flex;flex-direction:column;overflow:hidden}
 
 /* Top bar */
-.topbar{height:64px;background:var(--white);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 28px;flex-shrink:0}
+.topbar{height:72px;background:var(--white);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 34px;flex-shrink:0}
 .topbar-left{display:flex;align-items:center;gap:16px}
 .topbar-left h2{font-size:18px;font-weight:700}
 .topbar-right{display:flex;align-items:center;gap:12px}
-.topbar-right input{height:40px;width:200px;border:1px solid var(--border);border-radius:10px;padding:0 14px;font-size:13px;background:var(--bg);outline:none}
+.topbar-right input{height:42px;width:240px;border:1px solid var(--border);border-radius:12px;padding:0 14px;font-size:13px;background:#f8fafc;outline:none}
 .topbar-right input:focus{border-color:var(--primary)}
 .user-avatar{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--purple));display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:14px;cursor:pointer}
 
 /* Content */
-.content{flex:1;overflow-y:auto;padding:24px 28px}
+.content{flex:1;overflow-y:auto;padding:28px 34px}
 
 /* Inputs */
-input,select,textarea{font-family:inherit;font-size:13px;color:var(--text);background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:0 14px;height:42px;outline:none;transition:var(--transition)}
+input,select,textarea{font-family:inherit;font-size:13px;color:var(--text);background:var(--white);border:1px solid var(--border);border-radius:12px;padding:0 14px;height:42px;outline:none;transition:var(--transition)}
 input:focus,select:focus,textarea:focus{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-bg)}
 textarea{height:auto;min-height:80px;padding:12px 14px;resize:vertical}
 input::placeholder{color:var(--muted)}
 select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%238b92a8' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px}
 
 /* Buttons */
-button{font-family:inherit;font-size:13px;font-weight:600;border:1px solid var(--border);border-radius:var(--radius);background:var(--white);color:var(--text);height:42px;padding:0 20px;cursor:pointer;transition:var(--transition);white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+button{font-family:inherit;font-size:13px;font-weight:700;border:1px solid var(--border);border-radius:12px;background:var(--white);color:var(--text);height:42px;padding:0 20px;cursor:pointer;transition:var(--transition);white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;gap:7px}
 button:hover{background:var(--bg);border-color:var(--border)}
 button:active{transform:scale(.98)}
 button:disabled{opacity:.4;cursor:not-allowed;transform:none}
@@ -203,13 +205,14 @@ button.success{background:var(--white);border-color:var(--green-border);color:va
 button.success:hover{background:var(--green-bg)}
 button.ghost{background:transparent;border-color:transparent;color:var(--text2)}
 button.ghost:hover{background:var(--bg);color:var(--text)}
-button.sm{height:34px;font-size:12px;padding:0 14px;border-radius:8px}
+button.sm{height:36px;font-size:12px;padding:0 14px;border-radius:10px}
 
 /* Stat Cards */
-.stats-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px;margin-bottom:24px}
-.stat-card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;display:flex;align-items:center;gap:16px;transition:var(--transition);box-shadow:var(--shadow)}
+.stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:24px}
+.stat-card{background:var(--white);border:1px solid var(--border);border-radius:16px;padding:18px 20px;display:flex;align-items:center;gap:16px;transition:var(--transition);box-shadow:var(--shadow)}
 .stat-card:hover{box-shadow:var(--shadow-md);transform:translateY(-2px)}
-.stat-icon{width:48px;height:48px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
+.stat-icon{width:48px;height:48px;border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.stat-icon .svg-icon{width:22px;height:22px}
 .stat-icon.blue{background:var(--primary-bg);color:var(--primary)}
 .stat-icon.green{background:var(--green-bg);color:var(--green)}
 .stat-icon.purple{background:var(--purple-bg);color:var(--purple)}
@@ -218,13 +221,13 @@ button.sm{height:34px;font-size:12px;padding:0 14px;border-radius:8px}
 .stat-info .stat-label{font-size:12px;color:var(--muted);font-weight:500;margin-top:4px}
 
 /* Cards */
-.card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px;margin-bottom:20px;box-shadow:var(--shadow)}
+.card{background:var(--white);border:1px solid var(--border);border-radius:16px;padding:24px 28px;margin-bottom:20px;box-shadow:var(--shadow)}
 .card-header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px}
 .card-header h3{font-size:16px;font-weight:700;color:var(--text)}
 .card-header .subtitle{font-size:12px;color:var(--muted);font-weight:500}
 
 /* Tabs */
-.tabs{display:flex;gap:4px;margin-bottom:24px;overflow-x:auto;background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:4px;box-shadow:var(--shadow)}
+.tabs{display:flex;gap:4px;margin-bottom:24px;overflow-x:auto;background:var(--white);border:1px solid var(--border);border-radius:14px;padding:5px;box-shadow:var(--shadow)}
 .tab-btn{border:none;border-radius:8px;background:transparent;color:var(--text2);font-weight:500;padding:10px 18px;height:auto;font-size:13px;cursor:pointer;transition:var(--transition);white-space:nowrap;box-shadow:none}
 .tab-btn:hover{color:var(--text);background:var(--bg)}
 .tab-btn.active{color:#fff;background:var(--primary);font-weight:600;box-shadow:0 2px 6px rgba(37,99,235,.25)}
@@ -267,7 +270,8 @@ button.sm{height:34px;font-size:12px;padding:0 14px;border-radius:8px}
 
 /* Empty state */
 .empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:80px 20px;color:var(--muted);text-align:center}
-.empty-state .icon{font-size:56px;opacity:.4}
+.empty-state .icon{width:56px;height:56px;border-radius:18px;display:flex;align-items:center;justify-content:center;color:var(--muted);background:var(--bg);opacity:1}
+.empty-state .icon .svg-icon{width:28px;height:28px;opacity:.7}
 .empty-state p{font-size:15px;max-width:300px;line-height:1.5}
 
 /* Modal */
@@ -295,6 +299,39 @@ tr:hover td{background:var(--bg)}
 </style>
 </head>
 <body>
+<svg aria-hidden="true" width="0" height="0" style="position:absolute;overflow:hidden">
+  <defs>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="m3 10.5 9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6"/></symbol>
+    <symbol id="i-building" viewBox="0 0 24 24"><path d="M4 21h16"/><path d="M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16"/><path d="M9 7h1M14 7h1M9 11h1M14 11h1M9 15h1M14 15h1"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1A2 2 0 1 1 4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1A2 2 0 1 1 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3h.1a1.7 1.7 0 0 0 1-1.6V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1A2 2 0 1 1 19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9v.1a1.7 1.7 0 0 0 1.6 1h.1a2 2 0 1 1 0 4H21a1.7 1.7 0 0 0-1.6 1Z"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></symbol>
+    <symbol id="i-clipboard" viewBox="0 0 24 24"><path d="M9 3h6l1 2h3v16H5V5h3l1-2Z"/><path d="M9 9h6M9 13h6M9 17h4"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3 2 21h20L12 3Z"/><path d="M12 9v5M12 18h.01"/></symbol>
+    <symbol id="i-dashboard" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="8" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="15" width="7" height="6" rx="1"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 15H6L5 6"/><path d="M10 11v6M14 11v6"/></symbol>
+    <symbol id="i-message" viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-8 8H6l-3 3v-6a8 8 0 1 1 18-5Z"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9"/><path d="M16 3.1a4 4 0 0 1 0 7.8"/></symbol>
+    <symbol id="i-mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></symbol>
+    <symbol id="i-box" viewBox="0 0 24 24"><path d="m21 8-9-5-9 5 9 5 9-5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></symbol>
+    <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15Z"/></symbol>
+    <symbol id="i-save" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8M7 3v5h8"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="m8 5 11 7-11 7V5Z"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-key" viewBox="0 0 24 24"><circle cx="7.5" cy="15.5" r="4.5"/><path d="m11 12 9-9M15 6l3 3M17 4l3 3"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></symbol>
+    <symbol id="i-radio" viewBox="0 0 24 24"><path d="M4.9 19.1a10 10 0 0 1 0-14.2M8.5 15.5a5 5 0 0 1 0-7M15.5 8.5a5 5 0 0 1 0 7M19.1 4.9a10 10 0 0 1 0 14.2"/><circle cx="12" cy="12" r="1"/></symbol>
+    <symbol id="i-bot" viewBox="0 0 24 24"><rect x="4" y="8" width="16" height="12" rx="2"/><path d="M12 4v4M8 2h8M9 13h.01M15 13h.01M9 17h6"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/></symbol>
+    <symbol id="i-zap" viewBox="0 0 24 24"><path d="M13 2 3 14h8l-1 8 11-13h-8l1-7Z"/></symbol>
+    <symbol id="i-credit-card" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h3"/></symbol>
+    <symbol id="i-bank" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7"/><path d="M5 10h14M6 10v9M10 10v9M14 10v9M18 10v9M4 19h16"/></symbol>
+    <symbol id="i-flag" viewBox="0 0 24 24"><path d="M5 22V4"/><path d="M5 4h12l-1 5 1 5H5"/></symbol>
+    <symbol id="i-code" viewBox="0 0 24 24"><path d="m8 9-4 3 4 3M16 9l4 3-4 3M14 4l-4 16"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8.1 8.1 0 0 0-15.5-2M4 5v4h4M4 13a8.1 8.1 0 0 0 15.5 2M20 19v-4h-4"/></symbol>
+  </defs>
+</svg>
 <div class="app">
 <!-- Sidebar -->
 <aside class="sidebar">
@@ -302,21 +339,24 @@ tr:hover td{background:var(--bg)}
     <div class="logo-icon">H</div>
     <h1>HalloTravel</h1>
   </div>
-  <div class="sidebar-search"><input id="searchTenant" type="text" placeholder="Cari tenant..."></div>
+  <div class="sidebar-search">
+    <svg class="svg-icon search-icon"><use href="#i-search"></use></svg>
+    <input id="searchTenant" type="text" placeholder="Cari tenant...">
+  </div>
   <div class="sidebar-nav">
     <div class="nav-label">Menu</div>
-    <button class="nav-item active" id="navHome"><span class="icon">🏠</span> Home</button>
-    <button class="nav-item" id="navTenants"><span class="icon">🏢</span> Tenants</button>
-    <button class="nav-item" id="navSettings"><span class="icon">⚙️</span> Settings</button>
+    <button class="nav-item active" id="navHome"><span class="icon"><svg class="svg-icon"><use href="#i-home"></use></svg></span> Home</button>
+    <button class="nav-item" id="navTenants"><span class="icon"><svg class="svg-icon"><use href="#i-building"></use></svg></span> Tenants</button>
+    <button class="nav-item" id="navSettings"><span class="icon"><svg class="svg-icon"><use href="#i-settings"></use></svg></span> Settings</button>
   </div>
   <div class="sidebar-nav">
     <div class="nav-label">Tenants</div>
   </div>
   <div class="sidebar-tenants" id="tenantList">
-    <div class="empty-state" style="padding:30px 10px"><div class="icon" style="font-size:32px">🔐</div><p style="font-size:12px">Masukkan token untuk memuat</p></div>
+    <div class="empty-state" style="padding:30px 10px"><div class="icon"><svg class="svg-icon"><use href="#i-lock"></use></svg></div><p style="font-size:12px">Masukkan token untuk memuat</p></div>
   </div>
   <div class="sidebar-footer">
-    <button id="openAddModal" class="primary" style="width:100%">＋ Tambah Tenant</button>
+    <button id="openAddModal" class="primary" style="width:100%"><svg class="svg-icon"><use href="#i-plus"></use></svg> Tambah Tenant</button>
   </div>
 </aside>
 
@@ -327,12 +367,12 @@ tr:hover td{background:var(--bg)}
     <div class="topbar-right">
       <input id="token" type="password" placeholder="Admin token">
       <button id="saveToken" class="primary sm">Login</button>
-      <button id="refresh" class="ghost sm">↻</button>
+      <button id="refresh" class="ghost sm" title="Refresh"><svg class="svg-icon"><use href="#i-refresh"></use></svg></button>
       <div class="user-avatar" title="Super Admin">SA</div>
     </div>
   </div>
   <div class="content" id="mainContent">
-    <div class="empty-state"><div class="icon">📋</div><p>Pilih tenant dari sidebar atau masukkan admin token untuk memulai</p></div>
+    <div class="empty-state"><div class="icon"><svg class="svg-icon"><use href="#i-clipboard"></use></svg></div><p>Pilih tenant dari sidebar atau masukkan admin token untuk memulai</p></div>
   </div>
 </div>
 </div>
@@ -349,7 +389,7 @@ tr:hover td{background:var(--bg)}
     <div class="form-group"><div class="form-label">Admin Phone</div><input id="newAdminPhone" placeholder="628xxx"></div>
   </div>
   <div class="form-actions">
-    <button id="createTenantBtn" class="primary">Buat Tenant</button>
+    <button id="createTenantBtn" class="primary"><svg class="svg-icon"><use href="#i-plus"></use></svg> Buat Tenant</button>
     <button id="closeAddModal" class="ghost">Batal</button>
   </div>
 </div>
@@ -358,11 +398,11 @@ tr:hover td{background:var(--bg)}
 <!-- Delete Modal -->
 <div class="modal-overlay" id="deleteModal">
 <div class="modal">
-  <h2 style="color:var(--red)">⚠️ Hapus Tenant</h2>
+  <h2 class="icon-title" style="color:var(--red)"><svg class="svg-icon"><use href="#i-alert"></use></svg> Hapus Tenant</h2>
   <p class="modal-sub">Tenant akan dinonaktifkan dan folder config akan di-rename. Data di database tetap tersimpan.</p>
   <p style="font-weight:700;margin-bottom:20px;font-size:15px" id="deleteTargetName"></p>
   <div class="form-actions">
-    <button id="confirmDeleteBtn" class="danger">Ya, Hapus Tenant</button>
+    <button id="confirmDeleteBtn" class="danger"><svg class="svg-icon"><use href="#i-trash"></use></svg> Ya, Hapus Tenant</button>
     <button id="closeDeleteModal" class="ghost">Batal</button>
   </div>
 </div>
@@ -381,6 +421,7 @@ document.getElementById("token").value=token;
 
 /* Utils */
 function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function svgIcon(name){return `<svg class="svg-icon"><use href="#i-${name}"></use></svg>`}
 function toast(msg,type="info"){
   const el=document.createElement("div");el.className="toast-item "+type;el.textContent=msg;
   document.getElementById("toast").appendChild(el);setTimeout(()=>el.remove(),3100);
@@ -417,7 +458,7 @@ async function selectTenant(code){
   selectedCode=code;renderTenantList();
   document.getElementById("pageTitle").textContent=tenants.find(t=>t.client_code===code)?.brand_name||code;
   try{tenantDetail=await api(`/admin/api/tenants/${code}/detail`);renderDetail()}
-  catch(e){document.getElementById("mainContent").innerHTML=`<div class="empty-state"><div class="icon">⚠️</div><p>${esc(e.message)}</p></div>`}
+  catch(e){document.getElementById("mainContent").innerHTML=`<div class="empty-state"><div class="icon">${svgIcon("alert")}</div><p>${esc(e.message)}</p></div>`}
 }
 
 /* Render Detail */
@@ -439,18 +480,18 @@ function renderDetail(){
     </div>
   </div>
   <div style="display:flex;gap:8px">
-    <a href="${esc(d.urls.dashboard)}" target="_blank" style="text-decoration:none"><button class="primary sm">📊 Dashboard</button></a>
-    <button class="danger sm" onclick="openDeleteModal()">🗑 Hapus</button>
+    <a href="${esc(d.urls.dashboard)}" target="_blank" style="text-decoration:none"><button class="primary sm">${svgIcon("dashboard")} Dashboard</button></a>
+    <button class="danger sm" onclick="openDeleteModal()">${svgIcon("trash")} Hapus</button>
   </div>
 </div>
 
 <!-- Stats -->
 <div class="stats-row">
-  <div class="stat-card"><div class="stat-icon blue">💬</div><div class="stat-info"><div class="stat-value">${s.conversations}</div><div class="stat-label">Conversations</div></div></div>
-  <div class="stat-card"><div class="stat-icon green">👥</div><div class="stat-info"><div class="stat-value">${s.contacts}</div><div class="stat-label">Contacts</div></div></div>
-  <div class="stat-card"><div class="stat-icon purple">📨</div><div class="stat-info"><div class="stat-value">${s.messages}</div><div class="stat-label">Messages</div></div></div>
-  <div class="stat-card"><div class="stat-icon amber">📦</div><div class="stat-info"><div class="stat-value">${s.bookings}</div><div class="stat-label">Bookings</div></div></div>
-  <div class="stat-card"><div class="stat-icon blue">📚</div><div class="stat-info"><div class="stat-value">${s.knowledge_docs}</div><div class="stat-label">Knowledge</div></div></div>
+  <div class="stat-card"><div class="stat-icon blue">${svgIcon("message")}</div><div class="stat-info"><div class="stat-value">${s.conversations}</div><div class="stat-label">Conversations</div></div></div>
+  <div class="stat-card"><div class="stat-icon green">${svgIcon("users")}</div><div class="stat-info"><div class="stat-value">${s.contacts}</div><div class="stat-label">Contacts</div></div></div>
+  <div class="stat-card"><div class="stat-icon purple">${svgIcon("mail")}</div><div class="stat-info"><div class="stat-value">${s.messages}</div><div class="stat-label">Messages</div></div></div>
+  <div class="stat-card"><div class="stat-icon amber">${svgIcon("box")}</div><div class="stat-info"><div class="stat-value">${s.bookings}</div><div class="stat-label">Bookings</div></div></div>
+  <div class="stat-card"><div class="stat-icon blue">${svgIcon("book")}</div><div class="stat-info"><div class="stat-value">${s.knowledge_docs}</div><div class="stat-label">Knowledge</div></div></div>
 </div>
 
 <!-- Tabs -->
@@ -479,8 +520,8 @@ function renderDetail(){
       <div class="form-group"><div class="form-label">Language</div><input id="oLang" value="${esc(c.default_language||"id")}"></div>
     </div>
     <div class="form-actions">
-      <button class="primary" onclick="saveOverview()">💾 Simpan Perubahan</button>
-      <button class="${d.status==="active"?"danger":"success"}" onclick="toggleStatus()">${d.status==="active"?"⏸ Nonaktifkan":"▶ Aktifkan"}</button>
+      <button class="primary" onclick="saveOverview()">${svgIcon("save")} Simpan Perubahan</button>
+      <button class="${d.status==="active"?"danger":"success"}" onclick="toggleStatus()">${d.status==="active"?svgIcon("pause")+" Nonaktifkan":svgIcon("play")+" Aktifkan"}</button>
     </div>
   </div>
   <div class="card">
@@ -495,26 +536,26 @@ function renderDetail(){
 <!-- API Keys Tab -->
 <div class="tab-panel ${activeTab==="apikeys"?"active":""}" id="panel-apikeys">
   <div class="card">
-    <div class="card-header"><h3>🔑 API Keys</h3><span class="subtitle">Keys disimpan terenkripsi per-tenant</span></div>
+    <div class="card-header"><h3 class="icon-title">${svgIcon("key")} API Keys</h3><span class="subtitle">Keys disimpan terenkripsi per-tenant</span></div>
     ${Object.entries(ak).map(([k,v])=>`
     <div class="key-row">
       <div class="key-info">
         <div class="key-name">${esc(k.replace(/_/g," ").toUpperCase())}</div>
-        <div class="key-source ${v.is_set?"set":"not-set"}">${v.is_set?`✅ Set (${esc(v.source)}) · ${esc(v.masked_value)}`:"❌ Belum diset"}</div>
+        <div class="key-source ${v.is_set?"set":"not-set"}">${v.is_set?`Set (${esc(v.source)}) · ${esc(v.masked_value)}`:"Belum diset"}</div>
       </div>
       <div class="key-input-wrap">
         <input type="password" id="key_${esc(k)}" placeholder="Masukkan key baru...">
-        <button class="sm ghost" onclick="toggleKeyVis('key_${esc(k)}')">👁</button>
+        <button class="sm ghost" onclick="toggleKeyVis('key_${esc(k)}')" title="Lihat key">${svgIcon("eye")}</button>
       </div>
     </div>`).join("")}
-    <div class="form-actions"><button class="primary" onclick="saveApiKeys()">💾 Simpan API Keys</button></div>
+    <div class="form-actions"><button class="primary" onclick="saveApiKeys()">${svgIcon("save")} Simpan API Keys</button></div>
   </div>
 </div>
 
 <!-- Channel Tab -->
 <div class="tab-panel ${activeTab==="channel"?"active":""}" id="panel-channel">
   <div class="card">
-    <div class="card-header"><h3>📡 Channel Config</h3></div>
+    <div class="card-header"><h3 class="icon-title">${svgIcon("radio")} Channel Config</h3></div>
     <div class="form-grid" style="margin-bottom:16px">
       <div class="form-group"><div class="form-label">Active Channel</div>
         <select id="chActive">${["starsender","waba","telegram"].map(c2=>`<option value="${c2}" ${ch.active_channel===c2?"selected":""}>${c2}</option>`).join("")}</select>
@@ -531,14 +572,14 @@ function renderDetail(){
         <div class="form-group"><div class="form-label">${esc(k2)}</div><input class="ch-field" data-channel="${esc(chName)}" data-key="${esc(k2)}" value="${esc(v2)}"></div>`).join("")}
       </div>
     </div>`).join("")}
-    <div class="form-actions"><button class="primary" onclick="saveChannel()">💾 Simpan Channel</button></div>
+    <div class="form-actions"><button class="primary" onclick="saveChannel()">${svgIcon("save")} Simpan Channel</button></div>
   </div>
 </div>
 
 <!-- AI Tab -->
 <div class="tab-panel ${activeTab==="ai"?"active":""}" id="panel-ai">
   <div class="card">
-    <div class="card-header"><h3>🤖 AI Config</h3></div>
+    <div class="card-header"><h3 class="icon-title">${svgIcon("bot")} AI Config</h3></div>
     <div class="form-grid">
       <div class="form-group"><div class="form-label">Provider</div><input id="aiProvider" value="${esc(ai.provider||"gemini")}"></div>
       <div class="form-group"><div class="form-label">Chat Model</div><input id="aiChatModel" value="${esc(ai.chat_model||"")}"></div>
@@ -551,7 +592,7 @@ function renderDetail(){
     </div>
   </div>
   <div class="card">
-    <div class="card-header"><h3>🛡 Safety</h3></div>
+    <div class="card-header"><h3 class="icon-title">${svgIcon("shield")} Safety</h3></div>
     <div class="form-grid">
       <div class="form-group"><div class="form-label">Intent Confidence Min</div><input id="aiIntentMin" type="number" step="0.01" value="${(ai.safety||{}).intent_confidence_min??0.70}"></div>
       <div class="form-group"><div class="form-label">Retrieval Score Min</div><input id="aiRetrMin" type="number" step="0.01" value="${(ai.safety||{}).retrieval_score_min??0.55}"></div>
@@ -559,51 +600,51 @@ function renderDetail(){
     </div>
   </div>
   <div class="card">
-    <div class="card-header"><h3>⚡ Token Optimization</h3></div>
+    <div class="card-header"><h3 class="icon-title">${svgIcon("zap")} Token Optimization</h3></div>
     <div class="form-grid">
       <div class="form-group"><div class="form-label">RAG Top K</div><input id="aiRagK" type="number" value="${(ai.token_optimization||{}).rag_top_k??3}"></div>
       <div class="form-group"><div class="form-label">Max Chunk Tokens</div><input id="aiChunkTok" type="number" value="${(ai.token_optimization||{}).max_chunk_tokens??500}"></div>
       <div class="form-group"><div class="form-label">Cache TTL (min)</div><input id="aiCacheTTL" type="number" value="${(ai.token_optimization||{}).response_cache_ttl_minutes??60}"></div>
     </div>
   </div>
-  <div class="form-actions"><button class="primary" onclick="saveAI()">💾 Simpan AI Config</button></div>
+  <div class="form-actions"><button class="primary" onclick="saveAI()">${svgIcon("save")} Simpan AI Config</button></div>
 </div>
 
 <!-- Payment Tab -->
 <div class="tab-panel ${activeTab==="payment"?"active":""}" id="panel-payment">
   <div class="card">
-    <div class="card-header"><h3>💳 Payment Config</h3></div>
+    <div class="card-header"><h3 class="icon-title">${svgIcon("credit-card")} Payment Config</h3></div>
     <div class="form-grid">
       <div class="form-group full"><div class="form-label">Payment Instruction</div><textarea id="payInstruction" rows="3">${esc(pay.payment_instruction||"")}</textarea></div>
       <div class="form-group full"><div class="form-label">Verification Message</div><textarea id="payVerification" rows="3">${esc(pay.verification_message||"")}</textarea></div>
     </div>
   </div>
   <div class="card">
-    <div class="card-header"><h3>🏦 Bank Accounts</h3></div>
+    <div class="card-header"><h3 class="icon-title">${svgIcon("bank")} Bank Accounts</h3></div>
     ${(pay.bank_accounts||[]).length?`<table><thead><tr><th>Bank</th><th>Nomor</th><th>Atas Nama</th><th>Status</th></tr></thead><tbody>
     ${pay.bank_accounts.map(b=>`<tr><td style="font-weight:600">${esc(b.bank_name)}</td><td>${esc(b.account_number)}</td><td>${esc(b.account_holder)}</td><td><span class="badge ${b.is_active?"active":"inactive"}">${b.is_active?"Active":"Inactive"}</span></td></tr>`).join("")}
     </tbody></table>`:'<p style="color:var(--muted);text-align:center;padding:20px">Belum ada bank account</p>'}
   </div>
-  <div class="form-actions"><button class="primary" onclick="savePayment()">💾 Simpan Payment</button></div>
+  <div class="form-actions"><button class="primary" onclick="savePayment()">${svgIcon("save")} Simpan Payment</button></div>
 </div>
 
 <!-- Flags Tab -->
 <div class="tab-panel ${activeTab==="flags"?"active":""}" id="panel-flags">
   <div class="card">
-    <div class="card-header"><h3>🚩 Feature Flags</h3><span class="subtitle">Toggle fitur on/off per tenant</span></div>
+    <div class="card-header"><h3 class="icon-title">${svgIcon("flag")} Feature Flags</h3><span class="subtitle">Toggle fitur on/off per tenant</span></div>
     ${Object.entries(ff).map(([k,v])=>`
     <div class="toggle-row">
       <span class="toggle-label">${esc(k.replace(/_/g," "))}</span>
       <div class="toggle ${v?"on":""}" data-flag="${esc(k)}" onclick="toggleFlag(this)"></div>
     </div>`).join("")}
-    <div class="form-actions"><button class="primary" onclick="saveFlags()">💾 Simpan Flags</button></div>
+    <div class="form-actions"><button class="primary" onclick="saveFlags()">${svgIcon("save")} Simpan Flags</button></div>
   </div>
 </div>
 
 <!-- Raw Tab -->
 <div class="tab-panel ${activeTab==="raw"?"active":""}" id="panel-raw">
   <div class="card">
-    <div class="card-header"><h3>📝 Raw JSON</h3>
+    <div class="card-header"><h3 class="icon-title">${svgIcon("code")} Raw JSON</h3>
       <select id="rawSection" onchange="loadRawSection()" style="width:180px">
         <option value="client">client_config</option>
         <option value="channel">channel_config</option>
@@ -613,7 +654,7 @@ function renderDetail(){
       </select>
     </div>
     <textarea class="json-editor" id="rawEditor"></textarea>
-    <div class="form-actions"><button class="primary" onclick="saveRaw()">💾 Simpan</button></div>
+    <div class="form-actions"><button class="primary" onclick="saveRaw()">${svgIcon("save")} Simpan</button></div>
   </div>
 </div>`;
   main.querySelectorAll(".tab-btn").forEach(btn=>btn.addEventListener("click",()=>{
@@ -675,7 +716,7 @@ function openDeleteModal(){document.getElementById("deleteTargetName").textConte
 document.getElementById("closeDeleteModal").addEventListener("click",()=>document.getElementById("deleteModal").classList.remove("show"));
 document.getElementById("deleteModal").addEventListener("click",e=>{if(e.target===e.currentTarget)e.currentTarget.classList.remove("show")});
 document.getElementById("confirmDeleteBtn").addEventListener("click",async()=>{
-  try{await api(`/admin/api/tenants/${selectedCode}`,{method:"DELETE"});document.getElementById("deleteModal").classList.remove("show");toast("Tenant dihapus","success");selectedCode="";tenantDetail=null;document.getElementById("mainContent").innerHTML='<div class="empty-state"><div class="icon">📋</div><p>Pilih tenant</p></div>';await loadTenants()}catch(e){toast(e.message,"error")}
+  try{await api(`/admin/api/tenants/${selectedCode}`,{method:"DELETE"});document.getElementById("deleteModal").classList.remove("show");toast("Tenant dihapus","success");selectedCode="";tenantDetail=null;document.getElementById("mainContent").innerHTML=`<div class="empty-state"><div class="icon">${svgIcon("clipboard")}</div><p>Pilih tenant</p></div>`;await loadTenants()}catch(e){toast(e.message,"error")}
 });
 
 /* Init */
