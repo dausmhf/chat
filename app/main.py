@@ -100,19 +100,19 @@ def _super_admin_html() -> str:
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg:#f0f2f5;--white:#ffffff;--panel:#ffffff;
-  --border:#e5e9f0;--border-light:#f0f2f5;
-  --text:#1a1d26;--text2:#5a6178;--muted:#8b92a8;
-  --primary:#2563eb;--primary-light:#3b82f6;--primary-bg:#eff6ff;--primary-border:#bfdbfe;
+  --bg:#f8fafc;--white:#ffffff;--panel:#ffffff;
+  --border:#e2e8f0;--border-light:#f1f5f9;
+  --text:#0f172a;--text2:#475569;--muted:#94a3b8;
+  --primary:#3b82f6;--primary-light:#60a5fa;--primary-bg:#eff6ff;--primary-border:#bfdbfe;
   --green:#10b981;--green-bg:#ecfdf5;--green-border:#a7f3d0;
   --red:#ef4444;--red-bg:#fef2f2;--red-border:#fecaca;
   --amber:#f59e0b;--amber-bg:#fffbeb;--amber-border:#fde68a;
   --purple:#8b5cf6;--purple-bg:#f5f3ff;
   --radius:12px;--radius-lg:16px;
-  --shadow:0 1px 3px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04);
-  --shadow-md:0 4px 12px rgba(0,0,0,.08);
-  --shadow-lg:0 10px 30px rgba(0,0,0,.1);
-  --transition:all .2s ease;
+  --shadow:0 1px 3px rgba(15,23,42,.05),0 1px 2px rgba(15,23,42,.03);
+  --shadow-md:0 4px 6px -1px rgba(15,23,42,.08),0 2px 4px -2px rgba(15,23,42,.08);
+  --shadow-lg:0 10px 15px -3px rgba(15,23,42,.08),0 4px 6px -4px rgba(15,23,42,.08);
+  --transition:all .2s cubic-bezier(0.4,0,0.2,1);
 }
 html{font-size:14px}
 body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow:hidden}
@@ -538,17 +538,21 @@ function renderDetail(){
   <div class="card">
     <div class="card-header"><h3 class="icon-title">${svgIcon("key")} API Keys</h3><span class="subtitle">Keys disimpan terenkripsi per-tenant</span></div>
     ${Object.entries(ak).map(([k,v])=>`
-    <div class="key-row">
-      <div class="key-info">
-        <div class="key-name">${esc(k.replace(/_/g," ").toUpperCase())}</div>
-        <div class="key-source ${v.is_set?"set":"not-set"}">${v.is_set?`Set (${esc(v.source)}) · ${esc(v.masked_value)}`:"Belum diset"}</div>
+    <div class="key-row" style="display:grid;grid-template-columns:1fr 1fr;align-items:center;gap:20px;padding:16px 0;border-bottom:1px solid var(--border-light)">
+      <div class="key-info" style="display:flex;flex-direction:column;gap:6px">
+        <div class="key-name" style="font-weight:600;font-size:13px;color:var(--text)">${esc(k.replace(/_/g," ").toUpperCase())}</div>
+        <div>
+          ${v.is_set 
+            ? `<span class="badge active" style="font-size:10px;padding:2px 8px">${esc(v.source)}: ${esc(v.masked_value)}</span>` 
+            : `<span class="badge inactive" style="font-size:10px;padding:2px 8px">Belum diset</span>`}
+        </div>
       </div>
-      <div class="key-input-wrap">
-        <input type="password" id="key_${esc(k)}" placeholder="Masukkan key baru...">
-        <button class="sm ghost" onclick="toggleKeyVis('key_${esc(k)}')" title="Lihat key">${svgIcon("eye")}</button>
+      <div class="key-input-wrap" style="position:relative;display:flex;align-items:center">
+        <input type="password" id="key_${esc(k)}" placeholder="${v.is_set ? '••••••••••••••••' : 'Masukkan key baru...'}" style="width:100%;padding-right:40px">
+        <button class="sm ghost" onclick="toggleKeyVis('key_${esc(k)}')" title="Lihat key" style="position:absolute;right:4px;height:34px;width:34px;padding:0;border:none;background:transparent;display:flex;align-items:center;justify-content:center"><svg class="svg-icon"><use href="#i-eye"></use></svg></button>
       </div>
     </div>`).join("")}
-    <div class="form-actions"><button class="primary" onclick="saveApiKeys()">${svgIcon("save")} Simpan API Keys</button></div>
+    <div class="form-actions" style="margin-top:20px"><button class="primary" onclick="saveApiKeys()">${svgIcon("save")} Simpan API Keys</button></div>
   </div>
 </div>
 

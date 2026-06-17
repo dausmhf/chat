@@ -555,18 +555,18 @@ def _dashboard_html(client_code: str) -> str:
 <style>
 *,*::before,*::after{{box-sizing:border-box;margin:0;padding:0}}
 :root{{
-  --bg:#f0f2f5;--white:#ffffff;
-  --border:#e5e9f0;--border-light:#f0f2f5;
-  --text:#1a1d26;--text2:#5a6178;--muted:#8b92a8;
-  --primary:#2563eb;--primary-light:#3b82f6;--primary-bg:#eff6ff;--primary-border:#bfdbfe;
+  --bg:#f8fafc;--white:#ffffff;
+  --border:#e2e8f0;--border-light:#f1f5f9;
+  --text:#0f172a;--text2:#475569;--muted:#94a3b8;
+  --primary:#3b82f6;--primary-light:#60a5fa;--primary-bg:#eff6ff;--primary-border:#bfdbfe;
   --green:#10b981;--green-bg:#ecfdf5;--green-border:#a7f3d0;
   --red:#ef4444;--red-bg:#fef2f2;--red-border:#fecaca;
   --amber:#f59e0b;--amber-bg:#fffbeb;
   --purple:#8b5cf6;--purple-bg:#f5f3ff;
   --radius:12px;--radius-lg:16px;
-  --shadow:0 1px 3px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04);
-  --shadow-md:0 4px 12px rgba(0,0,0,.08);
-  --transition:all .2s ease;
+  --shadow:0 1px 3px rgba(15,23,42,.05),0 1px 2px rgba(15,23,42,.03);
+  --shadow-md:0 4px 6px -1px rgba(15,23,42,.08),0 2px 4px -2px rgba(15,23,42,.08);
+  --transition:all .2s cubic-bezier(0.4, 0, 0.2, 1);
 }}
 html{{font-size:14px}}
 body{{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow:hidden}}
@@ -648,11 +648,12 @@ input[type=file]{{padding:8px 12px;height:auto}}
 
 /* Messages */
 .messages-area{{flex:1;overflow-y:auto;padding:20px;background:var(--bg)}}
-.bubble{{max-width:680px;margin-bottom:12px;padding:12px 16px;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--white);line-height:1.5;overflow-wrap:anywhere;white-space:pre-wrap;box-shadow:var(--shadow)}}
-.bubble.incoming{{margin-right:auto;border-bottom-left-radius:4px}}
-.bubble.outgoing{{margin-left:auto;background:var(--primary-bg);border-color:var(--primary-border);border-bottom-right-radius:4px}}
-.bubble .msg-meta{{display:flex;justify-content:space-between;gap:10px;font-size:11px;color:var(--muted);margin-bottom:6px}}
-.bubble .msg-error{{color:var(--red);font-size:11px;margin-top:6px}}
+.bubble{{max-width:70%;margin-bottom:12px;padding:10px 14px;border-radius:16px;line-height:1.5;overflow-wrap:anywhere;white-space:pre-wrap;box-shadow:var(--shadow);position:relative;font-size:13px;display:flex;flex-direction:column;gap:4px}}
+.bubble.incoming{{margin-right:auto;background:var(--white);color:var(--text);border-bottom-left-radius:4px;border:1px solid var(--border)}}
+.bubble.outgoing{{margin-left:auto;background:var(--primary);color:#fff;border-bottom-right-radius:4px}}
+.bubble .bubble-text{{font-size:13px}}
+.bubble .bubble-meta{{display:flex;justify-content:flex-end;align-items:center;gap:6px;font-size:9px;color:var(--muted);margin-top:2px;text-align:right}}
+.bubble.outgoing .bubble-meta{{color:rgba(255,255,255,0.75)}}
 
 /* Bottom area */
 .bottom-area{{border-top:1px solid var(--border);background:var(--white);max-height:350px;overflow-y:auto}}
@@ -740,10 +741,14 @@ tr:hover td{{background:var(--bg)}}
       <button class="btab" data-panel="addknowledge">➕ Tambah Knowledge</button>
     </div>
     <div class="btab-panel active" id="panel-logs">
-      <table><thead><tr><th>Waktu</th><th>Tipe</th><th>Detail</th></tr></thead><tbody id="auditRows"><tr><td colspan="3" class="empty">Pilih conversation</td></tr></tbody></table>
+      <div id="auditRows" style="display:flex;flex-direction:column;gap:8px">
+        <div class="empty">Pilih conversation</div>
+      </div>
     </div>
     <div class="btab-panel" id="panel-knowledge">
-      <table><thead><tr><th>Dokumen</th><th>Tipe</th><th>Chunks</th><th>Versi</th></tr></thead><tbody id="knowledgeRows"><tr><td colspan="4" class="empty">Memuat...</td></tr></tbody></table>
+      <div id="knowledgeRows" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px">
+        <div class="empty" style="grid-column:1/-1">Memuat...</div>
+      </div>
     </div>
     <div class="btab-panel" id="panel-addknowledge">
       <div style="margin-bottom:16px">
@@ -833,23 +838,37 @@ async function loadMessages(id){{
   badge.className="badge "+(c.bot_enabled?"on":"off");
 
   const msgArea=document.getElementById("messages");
-  msgArea.innerHTML=data.messages.map(m=>`
+  msgArea.innerHTML=data.messages.map(m=>{{
+    const timeStr=m.created_at ? new Date(m.created_at).toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit"}) : "";
+    return `
     <div class="bubble ${{m.direction}}">
-      <div class="msg-meta"><span>${{esc(m.direction)}} · ${{esc(m.message_type)}}</span><span>${{fmtTime(m.created_at)}}</span></div>
-      ${{esc(m.text||m.file_url||"-")}}
-      ${{m.error?`<div class="msg-error">⚠ ${{esc(m.error)}}</div>`:""}}
-      ${{m.raw_payload?`<details style="margin-top:6px"><summary style="font-size:11px;color:var(--muted);cursor:pointer">Raw payload</summary><pre style="font-size:11px;color:var(--muted);white-space:pre-wrap;margin-top:4px">${{esc(JSON.stringify(m.raw_payload,null,2))}}</pre></details>`:""}}
-    </div>`).join("")||'<div class="empty">Belum ada pesan</div>';
+      <div class="bubble-text">${{esc(m.text||m.file_url||"-")}}</div>
+      <div class="bubble-meta">
+        <span style="font-size:8px;opacity:0.75">${{esc(m.message_type.toUpperCase())}}</span>
+        <span>${{esc(timeStr)}}</span>
+      </div>
+      ${{m.error?`<div class="msg-error" style="color:var(--red);font-size:10px;margin-top:4px">⚠ ${{esc(m.error)}}</div>`:""}}
+      ${{m.raw_payload?`<details style="margin-top:6px"><summary style="font-size:10px;color:inherit;opacity:0.75;cursor:pointer">Raw payload</summary><pre style="font-size:10px;opacity:0.8;white-space:pre-wrap;margin-top:4px">${{esc(JSON.stringify(m.raw_payload,null,2))}}</pre></details>`:""}}
+    </div>`;
+  }}).join("")||'<div class="empty">Belum ada pesan</div>';
   msgArea.scrollTop=msgArea.scrollHeight;
 
   document.getElementById("auditRows").innerHTML=[
-    ...data.handovers.map(h=>({{time:h.created_at,type:`handover:${{h.status}}`,detail:`${{h.reason}} — ${{h.summary}}`}})),
-    ...data.audits.map(a=>({{time:a.created_at,type:a.event_type,detail:JSON.stringify(a.new_value||{{}})}})),
-    ...data.rag_traces.map(r=>({{time:r.created_at,type:`rag (${{r.confidence.toFixed(2)}})`,detail:`${{r.normalized_query}}`}})),
-    ...data.knowledge_conflicts.map(k=>({{time:k.created_at,type:`conflict:${{k.conflict_type}}`,detail:k.query_text}})),
+    ...data.handovers.map(h=>({{time:h.created_at,type:`handover:${{h.status}}`,detail:`${{h.reason}} — ${{h.summary}}`,color:"amber"}})),
+    ...data.audits.map(a=>({{time:a.created_at,type:a.event_type,detail:JSON.stringify(a.new_value||{{}}),color:"purple"}})),
+    ...data.rag_traces.map(r=>({{time:r.created_at,type:`rag (${{r.confidence.toFixed(2)}})`,detail:`${{r.normalized_query}}`,color:"blue"}})),
+    ...data.knowledge_conflicts.map(k=>({{time:k.created_at,type:`conflict:${{k.conflict_type}}`,detail:k.query_text,color:"red"}})),
   ].sort((a,b)=>String(b.time).localeCompare(String(a.time))).map(row=>`
-    <tr><td style="white-space:nowrap">${{fmtTime(row.time)}}</td><td><span class="badge on" style="font-size:10px">${{esc(row.type)}}</span></td><td style="color:var(--text2)">${{esc(row.detail)}}</td></tr>
-  `).join("")||'<tr><td colspan="3" class="empty">Tidak ada log</td></tr>';
+    <div style="display:flex;align-items:flex-start;gap:12px;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:10px;font-size:12px">
+      <div style="font-size:11px;color:var(--muted);white-space:nowrap;padding-top:2px">${{fmtTime(row.time).slice(-8,-3)}}</div>
+      <div style="display:flex;flex-direction:column;gap:4px;flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:6px">
+          <span class="badge" style="font-size:9px;padding:1px 6px;background:var(--${{row.color}}-bg);color:var(--${{row.color}});border:1px solid var(--${{row.color}}-border);border-radius:4px">${{esc(row.type.toUpperCase())}}</span>
+        </div>
+        <div style="color:var(--text2);word-break:break-all;line-height:1.4">${{esc(row.detail)}}</div>
+      </div>
+    </div>
+  `).join("")||'<div class="empty">Tidak ada log</div>';
 
   renderConversations();
 }}
@@ -858,9 +877,15 @@ async function loadKnowledge(){{
   try{{
     const data=await request(`/admin/${{clientCode}}/api/knowledge`);
     document.getElementById("knowledgeRows").innerHTML=data.documents.map(d=>`
-      <tr><td style="font-weight:600">${{esc(d.title)}}</td><td>${{esc(d.document_type||d.source_type)}}</td><td>${{d.chunk_count}}</td><td>${{esc(d.doc_version)}}</td></tr>
-    `).join("")||'<tr><td colspan="4" class="empty">Belum ada knowledge</td></tr>';
-  }}catch(err){{document.getElementById("knowledgeRows").innerHTML=`<tr><td colspan="4" class="empty">${{esc(err.message)}}</td></tr>`}}
+      <div style="background:var(--white);border:1px solid var(--border);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:8px;box-shadow:var(--shadow)">
+        <div style="font-weight:700;font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${{esc(d.title)}}">${{esc(d.title)}}</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;font-size:11px;color:var(--muted)">
+          <span class="badge" style="background:var(--primary-bg);color:var(--primary);border:1px solid var(--primary-border);border-radius:4px;padding:1px 6px;font-size:9px">${{esc((d.document_type||d.source_type||"faq").toUpperCase())}}</span>
+          <span>${{d.chunk_count}} Chunks · v${{esc(d.doc_version||"1.0")}}</span>
+        </div>
+      </div>
+    `).join("")||'<div class="empty" style="grid-column:1/-1">Belum ada knowledge</div>';
+  }}catch(err){{document.getElementById("knowledgeRows").innerHTML=`<div class="empty" style="grid-column:1/-1">${{esc(err.message)}}</div>`}}
 }}
 
 async function ingestKnowledge(){{
