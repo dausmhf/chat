@@ -151,13 +151,14 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
 .nav-item .icon{width:22px;height:22px;display:flex;align-items:center;justify-content:center}
 .nav-item .badge-count{margin-left:auto;background:var(--red);color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;min-width:20px;text-align:center}
 
-.sidebar-tenants{flex:1;overflow-y:auto;padding:0 12px 12px}
-.tenant-item{width:100%;text-align:left;border:none;border-radius:10px;padding:12px;display:grid;gap:3px;cursor:pointer;transition:var(--transition);background:transparent;margin-bottom:2px}
+.sidebar-tenants{flex:1;overflow-y:auto;padding:0 14px 12px}
+.tenant-item{width:100%;min-width:0;text-align:left;border:1px solid transparent;border-radius:14px;padding:10px 11px;display:grid;gap:3px;cursor:pointer;transition:var(--transition);background:transparent;margin-bottom:4px}
 .tenant-item:hover{background:var(--bg)}
-.tenant-item.selected{background:var(--primary-bg);border:1px solid var(--primary-border)}
-.tenant-item .t-row{display:flex;align-items:center;justify-content:space-between;gap:6px;width:100%;overflow:hidden}
-.tenant-item .t-name{font-weight:600;font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0}
-.tenant-item .t-code{font-size:11px;color:var(--muted)}
+.tenant-item.selected{background:var(--primary-bg);border-color:var(--primary-border)}
+.tenant-item .t-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px;width:100%;min-width:0}
+.tenant-item .t-name{font-weight:700;font-size:12.5px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;line-height:1.25}
+.tenant-item .badge{flex-shrink:0;font-size:10px;padding:3px 8px;max-width:92px}
+.tenant-item .t-code{display:block;font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;line-height:1.25}
 
 .sidebar-footer{padding:12px 16px;border-top:1px solid var(--border)}
 .sidebar-footer button{width:100%}
