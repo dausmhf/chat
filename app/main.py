@@ -155,8 +155,8 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
 .tenant-item{width:100%;text-align:left;border:none;border-radius:10px;padding:12px;display:grid;gap:3px;cursor:pointer;transition:var(--transition);background:transparent;margin-bottom:2px}
 .tenant-item:hover{background:var(--bg)}
 .tenant-item.selected{background:var(--primary-bg);border:1px solid var(--primary-border)}
-.tenant-item .t-row{display:flex;align-items:center;justify-content:space-between;gap:6px}
-.tenant-item .t-name{font-weight:600;font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tenant-item .t-row{display:flex;align-items:center;justify-content:space-between;gap:6px;width:100%;overflow:hidden}
+.tenant-item .t-name{font-weight:600;font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0}
 .tenant-item .t-code{font-size:11px;color:var(--muted)}
 
 .sidebar-footer{padding:12px 16px;border-top:1px solid var(--border)}

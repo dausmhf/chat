@@ -580,6 +580,10 @@ body{{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--
 
 /* Layout */
 .app{{display:grid;grid-template-columns:220px 360px 1fr;height:100vh}}
+.app.view-knowledge{{grid-template-columns:220px 1fr}}
+.app.view-knowledge .conv-panel{{display:none}}
+.app.view-knowledge .messages-area{{display:none}}
+.app.view-knowledge .bottom-area{{flex:1;max-height:none}}
 
 /* Sidebar */
 .sidebar{{background:var(--white);border-right:1px solid var(--border);display:flex;flex-direction:column}}
@@ -607,10 +611,10 @@ body{{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--
 .conv-item{{width:100%;text-align:left;border:none;border-radius:0;border-bottom:1px solid var(--border-light);padding:14px 16px;display:grid;gap:4px;cursor:pointer;transition:var(--transition);background:transparent;height:auto}}
 .conv-item:hover{{background:var(--bg)}}
 .conv-item.selected{{background:var(--primary-bg);border-left:3px solid var(--primary)}}
-.conv-item .c-row{{display:flex;align-items:center;justify-content:space-between;gap:6px}}
-.conv-item .c-name{{font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
-.conv-item .c-time{{font-size:11px;color:var(--muted);white-space:nowrap}}
-.conv-item .c-preview{{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:2px}}
+.conv-item .c-row{{display:flex;align-items:center;justify-content:space-between;gap:6px;width:100%;overflow:hidden}}
+.conv-item .c-name{{font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0}}
+.conv-item .c-time{{font-size:11px;color:var(--muted);white-space:nowrap;flex-shrink:0}}
+.conv-item .c-preview{{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:2px;flex:1;min-width:0}}
 
 /* Badges */
 .badge{{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:20px;font-size:10px;font-weight:600}}
@@ -902,10 +906,20 @@ document.querySelectorAll(".btab").forEach(btn=>btn.addEventListener("click",()=
 /* Sidebar nav */
 document.querySelectorAll(".nav-item[data-view]").forEach(btn=>btn.addEventListener("click",()=>{{
   document.querySelectorAll(".nav-item[data-view]").forEach(b=>b.classList.toggle("active",b===btn));
+  const app=document.querySelector(".app");
+  if(btn.dataset.view==="knowledge"){{
+    app.classList.add("view-knowledge");
+    const btab=document.querySelector('.btab[data-panel="knowledge"]');
+    if(btab)btab.click();
+  }}else{{
+    app.classList.remove("view-knowledge");
+    const btab=document.querySelector('.btab[data-panel="logs"]');
+    if(btab)btab.click();
+  }}
 }}));
 
 /* Events */
-document.getElementById("saveToken").addEventListener("click",()=>{{token=document.getElementById("tokenInput").value.trim();sessionStorage.setItem("adminToken",token);loadConversations()}});
+document.getElementById("saveToken").addEventListener("click",()=>{{token=document.getElementById("tokenInput").value.trim();sessionStorage.setItem("adminToken",token);loadConversations();loadKnowledge()}});
 document.getElementById("botOn").addEventListener("click",()=>action("bot-on"));
 document.getElementById("takeover").addEventListener("click",()=>action("takeover"));
 document.getElementById("ingestKnowledge").addEventListener("click",ingestKnowledge);
