@@ -21,6 +21,14 @@ def execute_bot_on(
     if not conversation:
         return False, f"Conversation {conversation_id} not found."
 
+    # Read conversation summary for contextual message
+    summary = conversation.summary or ""
+    contact = db.query(models.Contact).filter(
+        models.Contact.id == conversation.contact_id,
+        models.Contact.client_id == client_uuid,
+    ).first()
+    contact_name = contact.display_name if contact and contact.display_name else "Ayah/Bunda"
+
     # 1. Update status and bot_enabled flag
     conversation.status = "bot_active"
     conversation.bot_enabled = True
@@ -41,11 +49,17 @@ def execute_bot_on(
     db.add(audit)
     db.commit()
 
-    # 3. Message template response to WhatsApp
-    confirm_msg = (
-        "Baik Ayah/Bunda, admin sudah membantu pengecekan. "
-        "Jika ada pertanyaan lain tentang paket, saya siap bantu kembali ya."
-    )
+    # 3. Contextual message template
+    if summary:
+        confirm_msg = (
+            f"Baik {contact_name}, admin sudah membantu pengecekan untuk: {summary} "
+            "Jika ada pertanyaan lain tentang paket, jadwal, atau pembayaran, saya siap bantu kembali ya."
+        )
+    else:
+        confirm_msg = (
+            f"Baik {contact_name}, admin sudah membantu pengecekan. "
+            "Jika ada pertanyaan lain tentang paket, saya siap bantu kembali ya."
+        )
     return True, confirm_msg
 
 def execute_takeover(
@@ -144,6 +158,41 @@ def execute_mark_payment(
         meta_data={"note": note}
     )
     db.add(audit)
+
+    # Queue user notification for payment status change
+    contact = db.query(models.Contact).join(
+        models.Booking, models.Booking.contact_id == models.Contact.id
+    ).filter(
+        models.Booking.id == invoice.booking_id,
+        models.Contact.client_id == client_uuid,
+    ).first()
+    if contact:
+        status_label = {"paid": "diverifikasi dan sah", "invalid": "tidak valid", "cancelled": "dibatalkan"}.get(new_status, new_status)
+        notify_payload = {
+            "phone": contact.phone_e164,
+            "contact_name": contact.display_name or "Ayah/Bunda",
+            "invoice_number": invoice.invoice_number,
+            "payment_status": new_status,
+            "message": (
+                f"Baik {contact.display_name or 'Ayah/Bunda'}, pembayaran invoice "
+                f"{invoice.invoice_number} sudah {status_label} oleh admin. "
+                "Jika ada pertanyaan, silakan hubungi kami kembali ya."
+            ) if new_status == "paid" else (
+                f"Mohon maaf {contact.display_name or 'Ayah/Bunda'}, pembayaran invoice "
+                f"{invoice.invoice_number} dinyatakan {status_label}. "
+                "Silakan hubungi admin untuk informasi lebih lanjut."
+            ),
+        }
+        db.add(models.QueueJob(
+            client_id=client_uuid,
+            queue_name="notification_queue",
+            task_name="notify_user_payment_status",
+            idempotency_key=f"payment-notify:{invoice_id}:{new_status}",
+            payload=notify_payload,
+            status="pending",
+            max_attempts=5,
+        ))
+
     db.commit()
 
     return True, f"Invoice {invoice.invoice_number} successfully marked as '{new_status}'."

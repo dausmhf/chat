@@ -124,7 +124,7 @@ class StarsenderAdapter(ChannelAdapter):
     def validate_signature(self, payload: dict, headers: dict) -> bool:
         expected_secret = self.webhook_secret or os.getenv("STARSENDER_WEBHOOK_SECRET")
         if not expected_secret:
-            return True
+            return settings.app_env != "production"
         provided = headers.get("x-webhook-secret") or headers.get("X-Webhook-Secret") or headers.get("x-starsender-secret")
         return provided == expected_secret
 

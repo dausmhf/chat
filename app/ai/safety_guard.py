@@ -24,6 +24,30 @@ FORBIDDEN_PROMISE_PATTERNS = [
     r"\btransfer\s+saja\s+ke\s+rekening\s+admin\b",
 ]
 
+PROMPT_INJECTION_PATTERNS = [
+    r"\babaikan\s+instruksi\b",
+    r"\bignore\s+instructions\b",
+    r"\bsystem\s+override\b",
+    r"\byou\s+are\s+now\s+a\b",
+    r"\bkamu\s+adalah\s+seorang\b",
+    r"\bterjemahkan\s+system\s+prompt\b",
+    r"\btranslate\s+system\s+prompt\b",
+    r"\bprint\s+the\s+system\s+prompt\b",
+]
+
+def validate_user_input(text: str) -> Tuple[bool, str]:
+    """
+    Checks user text input for common prompt injection patterns.
+    Returns:
+        (is_safe, fallback_message)
+    """
+    cleaned = (text or "").lower()
+    for pattern in PROMPT_INJECTION_PATTERNS:
+        if re.search(pattern, cleaned):
+            print(f"SafetyGuard: Blocked suspicious user input matching pattern '{pattern}'")
+            return False, "Mohon maaf Ayah/Bunda, saya tidak bisa memproses permintaan tersebut. Boleh tanyakan seputar paket umroh, jadwal, atau harga?"
+    return True, ""
+
 def check_forbidden_confirmations(text: str) -> bool:
     cleaned = text.lower()
     for pattern in FORBIDDEN_CONFIRMATION_PATTERNS:

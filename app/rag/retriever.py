@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import List, Dict, Any, Tuple, Optional
 from sqlalchemy.orm import Session
 from app.storage import models
-from app.rag.vector_store_pgvector import search_similarity
+from app.rag.vector_store_pgvector import search_similarity, search_fulltext
 
 SOURCE_PRIORITY = {
     "package_database": 6,
@@ -266,6 +266,29 @@ class RAGRetriever:
         if not terms:
             return []
 
+        # --- Primary: PostgreSQL full-text search (tsvector + ts_rank) ---
+        fts_results = search_fulltext(self.db, self.client_id, normalized_query, top_k=top_k * 3)
+        if fts_results:
+            scored = []
+            for chunk, fts_score in fts_results:
+                # ts_rank typically 0-1 range; scale to 0.45-0.85 base
+                score = 0.45 + fts_score * 0.40
+                haystack = normalize_query(" ".join([
+                    chunk.chunk_text or "",
+                    str(chunk.meta_data or {}),
+                ]))
+                meta = chunk.meta_data or {}
+                if filters.get("document_type") and filters["document_type"] in str(meta.get("document_type", meta.get("source_type", ""))).lower():
+                    score += 0.05
+                if any(code in haystack for code in filters.get("package_codes", [])):
+                    score += 0.08
+                if any(city in haystack for city in filters.get("cities", [])):
+                    score += 0.06
+                scored.append((chunk, min(score, 0.92)))
+            scored.sort(key=lambda item: item[1], reverse=True)
+            return scored[:top_k]
+
+        # --- Fallback: brute-force keyword matching ---
         candidates = self.db.query(models.KnowledgeChunk).join(
             models.KnowledgeDocument,
             models.KnowledgeChunk.document_id == models.KnowledgeDocument.id,

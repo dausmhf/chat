@@ -26,9 +26,15 @@ def check_rate_limit(
     """
     Applies PRD anti-abuse defaults using captured messages as the source of truth.
     """
-    now = datetime.datetime.now(datetime.timezone.utc)
-    one_minute_ago = now - datetime.timedelta(seconds=60)
-    one_day_ago = now - datetime.timedelta(days=1)
+    is_sqlite = db.bind.dialect.name == "sqlite" if db.bind else True
+    if is_sqlite:
+        now_naive = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+        one_minute_ago = (now_naive - datetime.timedelta(seconds=60)).strftime("%Y-%m-%d %H:%M:%S")
+        one_day_ago = (now_naive - datetime.timedelta(days=1)).strftime("%Y-%m-%d %H:%M:%S")
+    else:
+        now = datetime.datetime.now(datetime.timezone.utc)
+        one_minute_ago = now - datetime.timedelta(seconds=60)
+        one_day_ago = now - datetime.timedelta(days=1)
 
     burst_count = db.query(models.Message).filter(
         models.Message.client_id == client_id,
@@ -37,7 +43,7 @@ def check_rate_limit(
         models.Message.created_at >= one_minute_ago,
     ).count()
 
-    if burst_count > burst_limit:
+    if burst_count >= burst_limit:
         conversation.status = "abuse_limited"
         conversation.bot_enabled = False
         _audit_limit(db, client_id, conversation.id, "burst_limit", {"count": burst_count})
@@ -56,7 +62,7 @@ def check_rate_limit(
         models.Message.created_at >= one_day_ago,
     ).count()
 
-    if daily_count > daily_limit:
+    if daily_count >= daily_limit:
         conversation.status = "abuse_limited"
         conversation.bot_enabled = False
         _audit_limit(db, client_id, conversation.id, "daily_limit", {"count": daily_count})

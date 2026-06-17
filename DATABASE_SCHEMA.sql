@@ -550,3 +550,37 @@ CREATE INDEX IF NOT EXISTS idx_payment_evidences_client_invoice ON payment_evide
 CREATE INDEX IF NOT EXISTS idx_followup_tasks_due ON followup_tasks(client_id, status, scheduled_at);
 CREATE INDEX IF NOT EXISTS idx_queue_jobs_due ON queue_jobs(status, next_run_at);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_entity ON audit_logs(client_id, entity_type, entity_id, created_at DESC);
+
+-- =========================
+-- FULL-TEXT SEARCH (RAG Optimization)
+-- =========================
+
+-- Add tsvector column for Indonesian full-text search on knowledge chunks
+ALTER TABLE knowledge_chunks ADD COLUMN IF NOT EXISTS search_vector tsvector;
+
+-- GIN index for fast full-text search
+CREATE INDEX IF NOT EXISTS idx_knowledge_chunks_fts ON knowledge_chunks USING GIN (search_vector);
+
+-- Trigger function to auto-update tsvector from chunk_text
+CREATE OR REPLACE FUNCTION knowledge_chunks_fts_trigger() RETURNS trigger AS $$
+BEGIN
+  NEW.search_vector := to_tsvector('indonesian', COALESCE(NEW.chunk_text, ''));
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Apply trigger on INSERT and UPDATE
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger WHERE tgname = 'trg_knowledge_chunks_fts'
+  ) THEN
+    CREATE TRIGGER trg_knowledge_chunks_fts
+      BEFORE INSERT OR UPDATE OF chunk_text ON knowledge_chunks
+      FOR EACH ROW EXECUTE FUNCTION knowledge_chunks_fts_trigger();
+  END IF;
+END $$;
+
+-- Backfill existing rows (one-time)
+UPDATE knowledge_chunks SET search_vector = to_tsvector('indonesian', COALESCE(chunk_text, ''))
+WHERE search_vector IS NULL;

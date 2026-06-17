@@ -1,3 +1,4 @@
+import datetime as dt
 import uuid
 from typing import Any, Dict, List, Optional, Tuple
 from sqlalchemy.orm import Session
@@ -7,15 +8,17 @@ from app.ai.entity_extractor import EntityExtractor
 from app.ai.intent_detector import IntentDetector
 from app.ai.llm_client import LLMClient
 from app.ai.prompt_builder import build_system_prompt
+from app.ai.query_rewriter import rewrite_for_rag
 from app.ai.safety_guard import validate_response
 from app.business.booking_service import calculate_and_create_booking
 from app.business.invoice_service import create_booking_invoice
 from app.channels.factory import build_channel_adapter
 from app.config import client_config_manager
-from app.conversation.state_manager import can_bot_reply
+from app.conversation.state_manager import can_bot_reply, check_and_auto_recover
 from app.ingestion.event_handler import get_or_create_client_uuid, handle_incoming_webhook
 from app.ingestion.rate_limiter import check_rate_limit
 from app.payment.manual_payment_service import triage_incoming_file
+from app.ai.summarizer import maybe_summarize_conversation
 from app.rag.cache_manager import get_cached_answer, store_cached_answer
 from app.rag.retriever import RAGRetriever, RAGRetrievalResult
 from app.rag.source_trace_logger import log_source_trace
@@ -41,6 +44,27 @@ def process_incoming_message(
 
     ingest_result = handle_incoming_webhook(db, channel, payload, headers)
     if ingest_result.get("status") != "success":
+        if ingest_result.get("status") == "limited":
+            # Pre-ingestion rate limiter handling
+            conversation_id = uuid.UUID(ingest_result["conversation_id"])
+            conversation = db.query(models.Conversation).filter(
+                models.Conversation.id == conversation_id,
+                models.Conversation.client_id == client_uuid,
+            ).first()
+            contact = db.query(models.Contact).filter(
+                models.Contact.id == conversation.contact_id,
+                models.Contact.client_id == client_uuid,
+            ).first()
+            lead_profile = db.query(models.LeadProfile).filter(
+                models.LeadProfile.contact_id == conversation.contact_id,
+                models.LeadProfile.client_id == client_uuid,
+            ).first()
+            adapter = _get_adapter(channel, configs["channel"])
+            reply = ingest_result["reply"]
+            reason = ingest_result["reason"]
+            _send_and_log(db, client_uuid, conversation, contact, adapter, reply, send_reply)
+            create_admin_notification(db, client_uuid, conversation, reason, reply, contact, lead_profile)
+            return {"status": "limited", "reason": reason, "reply": reply}
         return {"status": ingest_result.get("status"), "ingestion": ingest_result}
 
     message = _get_message(db, ingest_result["message_id"], client_uuid)
@@ -56,18 +80,20 @@ def process_incoming_message(
 
     adapter = _get_adapter(channel, configs["channel"])
 
+    # Validate user input for prompt injection
+    from app.ai.safety_guard import validate_user_input
+    is_safe, fallback_msg = validate_user_input(message.text_content or "")
+    if not is_safe:
+        create_handover(db, client_uuid, conversation, "prompt_injection_suspected", fallback_msg, contact, lead_profile)
+        _send_and_log(db, client_uuid, conversation, contact, adapter, fallback_msg, send_reply)
+        return {"status": "handover", "reason": "prompt_injection_suspected", "reply": fallback_msg}
+
     file_size = _payload_file_size(payload)
     if file_size and file_size > 10 * 1024 * 1024:
         reply = "Mohon maaf Ayah/Bunda, file yang dikirim terlalu besar. Silakan kirim ulang dengan ukuran maksimal 10 MB atau minta admin membantu."
         _send_and_log(db, client_uuid, conversation, contact, adapter, reply, send_reply)
         create_admin_notification(db, client_uuid, conversation, "large_file_upload", "File lebih dari 10 MB ditolak.", contact, lead_profile)
         return {"status": "limited", "reason": "large_file_upload", "reply": reply}
-
-    rate = check_rate_limit(db, client_uuid, conversation.contact_id, conversation, message.text_content or "")
-    if not rate.allowed:
-        _send_and_log(db, client_uuid, conversation, contact, adapter, rate.user_message, send_reply)
-        create_admin_notification(db, client_uuid, conversation, rate.reason, rate.user_message, contact, lead_profile)
-        return {"status": "limited", "reason": rate.reason, "reply": rate.user_message}
 
     if message.message_type in {"image", "file"}:
         is_evidence, evidence_reply = triage_incoming_file(db, client_uuid, conversation, message)
@@ -79,8 +105,60 @@ def process_incoming_message(
             _send_and_log(db, client_uuid, conversation, contact, adapter, evidence_reply, send_reply)
             return {"status": "replied", "intent": "file_received", "reply": evidence_reply}
 
+    rate = check_rate_limit(db, client_uuid, conversation.contact_id, conversation, message.text_content or "")
+    if not rate.allowed:
+        _send_and_log(db, client_uuid, conversation, contact, adapter, rate.user_message, send_reply)
+        create_admin_notification(db, client_uuid, conversation, rate.reason, rate.user_message, contact, lead_profile)
+        return {"status": "limited", "reason": rate.reason, "reply": rate.user_message}
+
+    # Welcome-back message if returning after >24 hours with conversation summary
+    if conversation.last_message_at and conversation.summary:
+        last_message_at = _as_aware_utc(conversation.last_message_at)
+        gap = (dt.datetime.now(dt.timezone.utc) - last_message_at).total_seconds()
+        if gap > 86400:
+            contact_name_wb = contact.display_name or "Ayah/Bunda"
+            welcome_msg = (
+                f"Selamat datang kembali, {contact_name_wb}!\n"
+                f"Sebelumnya kita membahas: {conversation.summary}\n"
+                "Ada yang bisa saya bantu lagi?"
+            )
+            _send_and_log(db, client_uuid, conversation, contact, adapter, welcome_msg, send_reply)
+
     if not can_bot_reply(conversation):
+        # Auto-recovery check for rate-limit and handover timeouts
+        recovered, recovery_reason = check_and_auto_recover(db, conversation)
+        if recovered:
+            # Refresh conversation after recovery
+            db.refresh(conversation)
+            # Auto-recovered — send welcome-back message
+            contact_name = contact.display_name or "Ayah/Bunda"
+            if recovery_reason == "rate_limit_cooldown":
+                reply = f"Baik {contact_name}, saya sudah bisa membantu kembali. Ada yang bisa saya bantu?"
+            else:
+                reply = f"Baik {contact_name}, saya kembali membantu setelah pengecekan. Ada yang bisa ditanyakan seputar paket atau pemesanan?"
+            _send_and_log(db, client_uuid, conversation, contact, adapter, reply, send_reply)
+            return {"status": "replied", "reason": f"auto_recovered:{recovery_reason}", "reply": reply}
         return {"status": "stored_only", "reason": f"bot_paused:{conversation.status}"}
+
+    # Multi-turn booking: if collecting_booking, route back to booking flow with accumulated entities
+    if conversation.status == "collecting_booking":
+        # Check if there's an active booking with passenger placeholders (passenger collection)
+        active_booking = db.query(models.Booking).filter(
+            models.Booking.conversation_id == conversation.id,
+            models.Booking.status.in_(["draft", "waiting_invoice", "invoice_sent"]),
+        ).order_by(models.Booking.created_at.desc()).first()
+        if active_booking:
+            placeholder_count = db.query(models.Passenger).filter(
+                models.Passenger.booking_id == active_booking.id,
+                models.Passenger.status == "placeholder",
+            ).count()
+            if placeholder_count > 0:
+                return _handle_passenger_collection(
+                    db, client_uuid, client_code, conversation, contact, active_booking,
+                    message, adapter, configs, send_reply,
+                )
+        # Otherwise continue booking flow
+        return _handle_booking(db, client_uuid, client_code, conversation, contact, lead_profile, message, adapter, LLMClient(client_code, configs["ai"]), configs, send_reply)
 
     llm_client = LLMClient(client_code, configs["ai"])
     intent_detector = IntentDetector(llm_client)
@@ -112,7 +190,22 @@ def process_incoming_message(
     if intent == "booking_intent":
         return _handle_booking(db, client_uuid, client_code, conversation, contact, lead_profile, message, adapter, llm_client, configs, send_reply)
 
-    if intent in {"ask_package", "ask_price", "unknown", "acknowledgement"}:
+    if intent == "acknowledgement":
+        # Contextual acknowledgement based on last meaningful intent
+        contact_name = contact.display_name or "Ayah/Bunda"
+        last_intent = lead_profile.last_intent if lead_profile else None
+        if last_intent == "booking_intent":
+            reply = f"Sama-sama, {contact_name}. Booking sudah tercatat, silakan lanjutkan proses pembayaran sesuai invoice ya. Kalau ada pertanyaan, saya siap bantu."
+        elif last_intent in ("ask_price", "ask_package"):
+            reply = f"Sama-sama, {contact_name}. Kalau ada pertanyaan lain tentang paket, jadwal, atau harga, silakan tanyakan lagi ya."
+        elif last_intent == "payment_evidence":
+            reply = f"Baik {contact_name}, bukti sudah kami catat. Admin akan segera mengecek mutasi. Kalau ada pertanyaan, saya siap bantu."
+        else:
+            reply = f"Sama-sama, {contact_name}. Semoga dimudahkan niat sucinya ke Tanah Suci. Jika ada hal lain yang ingin ditanyakan, silakan hubungi saya kembali ya."
+        _send_and_log(db, client_uuid, conversation, contact, adapter, reply, send_reply)
+        return {"status": "replied", "intent": intent, "reply": reply}
+
+    if intent in {"ask_package", "ask_price", "unknown"}:
         reply, rag_handover, rag_result, cache_hit = _answer_with_rag_or_package_data(
             db, client_uuid, client_code, contact, conversation, message, llm_client, configs
         )
@@ -154,6 +247,7 @@ def process_incoming_message(
                     sources=rag_result.sources,
                     ttl_minutes=int(token_cfg.get("response_cache_ttl_minutes", 60)),
                 )
+        _trigger_summarization(db, client_uuid, client_code, conversation, contact, llm_client, configs)
         return {"status": "handover" if rag_handover else "replied", "intent": intent, "reply": final_reply}
 
     reply = "InsyaAllah saya bantu ya Ayah/Bunda. Untuk memastikan jawabannya tepat, saya teruskan ke admin."
@@ -175,10 +269,25 @@ def _handle_booking(
     configs: Dict[str, Any],
     send_reply: bool,
 ) -> Dict[str, Any]:
-    entities = EntityExtractor(llm_client).extract_booking_entities(message.text_content or "")
+    # Accumulate entities from ALL recent user messages (multi-turn support)
+    entities = _accumulate_booking_entities(db, llm_client, conversation.id, message.text_content or "")
+
     missing = [field for field in ["customer_name", "customer_phone", "pax", "package_code"] if not entities.get(field)]
     if missing:
-        reply = "Boleh dibantu lengkapi nama pemesan, nomor WhatsApp, pilihan paket/jadwal, dan jumlah pax ya Ayah/Bunda?"
+        # Save collecting state so next message goes back to booking flow
+        conversation.status = "collecting_booking"
+        if lead_profile:
+            lead_profile.stage = "data_collection"
+        db.commit()
+
+        readable_missing = {
+            "customer_name": "nama lengkap pemesan",
+            "customer_phone": "nomor WhatsApp",
+            "pax": "jumlah pax/orang",
+            "package_code": "kode paket atau bulan keberangkatan",
+        }
+        missing_labels = [readable_missing.get(f, f) for f in missing]
+        reply = f"Baik Ayah/Bunda, boleh dibantu lengkapi: {', '.join(missing_labels)} ya?"
         _send_and_log(db, client_uuid, conversation, contact, adapter, reply, send_reply)
         return {"status": "collecting_booking", "missing": missing, "reply": reply}
 
@@ -194,6 +303,9 @@ def _handle_booking(
     )
 
     if requires_handover or not booking:
+        # Clear collecting state on handover
+        conversation.status = "handover_required"
+        db.commit()
         create_handover(db, client_uuid, conversation, "booking_requires_admin", booking_reply, contact, lead_profile)
         _send_and_log(db, client_uuid, conversation, contact, adapter, booking_reply, send_reply)
         return {"status": "handover", "intent": "booking_intent", "reply": booking_reply}
@@ -224,7 +336,127 @@ def _handle_booking(
             metadata={"send_success": send_result.success, "error": send_result.error_message},
         )
 
+    _trigger_summarization(db, client_uuid, client_code, conversation, contact, llm_client, configs)
+
+    # Clear collecting state after successful booking
+    conversation.status = "waiting_payment_evidence"
+    if lead_profile:
+        lead_profile.stage = "invoice_sent"
+    db.commit()
+
     return {"status": "replied", "intent": "booking_intent", "booking_id": str(booking.id), "invoice_id": str(invoice.id) if invoice else None, "reply": reply}
+
+
+def _accumulate_booking_entities(
+    db: Session,
+    llm_client: LLMClient,
+    conversation_id: uuid.UUID,
+    latest_text: str,
+) -> Dict[str, Any]:
+    """
+    Multi-turn entity accumulation: extracts booking entities from ALL recent
+    user messages, merges them, and runs entity extraction on the combined text.
+    """
+    recent_user_msgs = (
+        db.query(models.Message)
+        .filter(
+            models.Message.conversation_id == conversation_id,
+            models.Message.direction == "incoming",
+            models.Message.text_content.isnot(None),
+        )
+        .order_by(models.Message.created_at.desc())
+        .limit(6)
+        .all()
+    )
+
+    combined_text = " | ".join(
+        (msg.text_content or "") for msg in reversed(recent_user_msgs)
+    )
+    # Also explicitly include the latest message first for priority
+    combined_text = f"{latest_text} | {combined_text}"
+
+    extractor = EntityExtractor(llm_client)
+    entities = extractor.extract_booking_entities(combined_text)
+    return entities if entities else {}
+
+
+def _handle_passenger_collection(
+    db: Session,
+    client_uuid: uuid.UUID,
+    client_code: str,
+    conversation: models.Conversation,
+    contact: models.Contact,
+    booking: models.Booking,
+    message: models.Message,
+    adapter: Any,
+    configs: Dict[str, Any],
+    send_reply: bool,
+) -> Dict[str, Any]:
+    """
+    Collects passenger names from user input for multi-pax bookings.
+    Fills placeholder passengers in order, one name per message or multiple names
+    separated by 'dan', '&', ',', or newlines.
+    """
+    text = (message.text_content or "").strip()
+
+    # Parse names: split by common separators
+    import re
+    names = re.split(r"\s*(?:dan|&|,|\n|sama|serta|juga)\s*", text)
+    names = [n.strip().strip(".,") for n in names if n.strip() and len(n.strip()) >= 2]
+
+    if not names:
+        reply = f"Boleh sebutkan nama lengkap jamaah ya Ayah/Bunda? Saat ini masih ada placeholder yang perlu diisi."
+        _send_and_log(db, client_uuid, conversation, contact, adapter, reply, send_reply)
+        return {"status": "collecting_passengers", "reply": reply}
+
+    # Fill placeholders in order
+    placeholders = (
+        db.query(models.Passenger)
+        .filter(
+            models.Passenger.booking_id == booking.id,
+            models.Passenger.status == "placeholder",
+        )
+        .order_by(models.Passenger.passenger_order)
+        .all()
+    )
+
+    filled = 0
+    for i, name in enumerate(names):
+        if i >= len(placeholders):
+            break
+        placeholders[i].full_name = name
+        placeholders[i].status = "partial"
+        filled += 1
+
+    db.commit()
+
+    remaining = len(placeholders) - filled
+
+    if remaining > 0:
+        reply = (
+            f"Baik Ayah/Bunda, {filled} nama sudah saya catat. "
+            f"Masih ada {remaining} jamaah lagi ya. Silakan sebutkan nama lengkapnya."
+        )
+        _send_and_log(db, client_uuid, conversation, contact, adapter, reply, send_reply)
+        return {"status": "collecting_passengers", "filled": filled, "remaining": remaining, "reply": reply}
+
+    # All passengers filled — complete the collection
+    for placeholder in placeholders[filled:]:
+        pass  # should be empty by now
+    for p in placeholders[:filled]:
+        p.status = "complete"
+
+    booking.passenger_collection_mode = "complete"
+    conversation.status = "waiting_payment_evidence"
+    db.commit()
+
+    reply = (
+        f"Alhamdulillah, semua data {booking.pax} jamaah sudah lengkap Ayah/Bunda. "
+        "Silakan lanjutkan proses pembayaran sesuai invoice yang sudah dikirim, "
+        "lalu kirim bukti transfer untuk diverifikasi admin ya."
+    )
+    _send_and_log(db, client_uuid, conversation, contact, adapter, reply, send_reply)
+    return {"status": "passengers_complete", "reply": reply}
 
 
 def _answer_with_rag_or_package_data(
@@ -238,6 +470,15 @@ def _answer_with_rag_or_package_data(
     configs: Dict[str, Any],
 ) -> Tuple[str, bool, Optional[RAGRetrievalResult], bool]:
     text = message.text_content or ""
+
+    # --- Query rewriting: expand abbreviations + inject conversation context ---
+    retrieval_query = text
+    recent_history = _recent_history(db, conversation.id, max_messages=8)
+    if recent_history:
+        expanded, original = rewrite_for_rag(text, recent_history)
+        retrieval_query = expanded if expanded != text else text
+    # -----------------------------------------------------------------
+
     retrieved_chunks: List[str] = []
     requires_handover = False
     rag_result: Optional[RAGRetrievalResult] = None
@@ -245,12 +486,12 @@ def _answer_with_rag_or_package_data(
 
     if configs["feature_flags"].get("rag_answering", True):
         try:
-            query_embedding = llm_client.embed_text(text)
+            query_embedding = llm_client.embed_text(retrieval_query)
             threshold = float(configs["ai"].get("safety", {}).get("retrieval_score_min", 0.55))
             token_cfg = configs["ai"].get("token_optimization", {})
             top_k = int(token_cfg.get("rag_top_k", 3))
             rag_result = RAGRetriever(db, client_uuid).retrieve(
-                query_text=text,
+                query_text=retrieval_query,
                 query_embedding=query_embedding,
                 min_threshold=threshold,
                 top_k=top_k,
@@ -324,7 +565,7 @@ def _requires_explicit_rag_context(text: str) -> bool:
 def _package_context(db: Session, client_uuid: uuid.UUID) -> str:
     packages = PackageRepository(db, client_uuid).get_packages()
     if not packages:
-        return ""
+        return "[Data paket sedang diperbarui oleh admin. Jika ada pertanyaan spesifik, teruskan ke admin.]"
     lines = ["Data paket aktif dari database:"]
     for package in packages[:8]:
         seat = f", sisa seat {package.remaining_seat}" if package.remaining_seat is not None else ""
@@ -389,10 +630,26 @@ def _send_and_log(
     send_success = False
     error_message = ""
     if send_reply:
-        result = adapter.send_text(contact.phone_e164, reply)
-        provider_message_id = result.message_id
-        send_success = result.success
-        error_message = result.error_message
+        # Send typing indicator first (natural UX)
+        try:
+            adapter.mark_read(contact.phone_e164)
+        except Exception:
+            pass  # non-critical
+
+        # Retry up to 3 times on failure
+        import time
+        for attempt in range(3):
+            result = adapter.send_text(contact.phone_e164, reply)
+            if result.success:
+                provider_message_id = result.message_id
+                send_success = True
+                break
+            error_message = result.error_message
+            if attempt < 2:
+                time.sleep(1.0)  # wait 1s before retry
+
+        if not send_success:
+            print(f"Orchestrator: Failed to send message after 3 retries. Error: {error_message}")
     return MessageRepository(db, client_uuid).log_message(
         conversation_id=conversation.id,
         direction="outgoing",
@@ -449,6 +706,30 @@ def _get_conversation(db: Session, conversation_id: str, client_uuid: uuid.UUID)
     if not conversation:
         raise ValueError(f"Conversation {conversation_id} not found.")
     return conversation
+
+
+def _as_aware_utc(value: dt.datetime) -> dt.datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=dt.timezone.utc)
+    return value.astimezone(dt.timezone.utc)
+
+
+def _trigger_summarization(
+    db: Session,
+    client_uuid: uuid.UUID,
+    client_code: str,
+    conversation: models.Conversation,
+    contact: models.Contact,
+    llm_client: LLMClient,
+    configs: dict,
+) -> None:
+    """Non-blocking summarization trigger. Failures are logged, not raised."""
+    try:
+        maybe_summarize_conversation(
+            db, client_uuid, client_code, conversation, contact, llm_client, configs,
+        )
+    except Exception as exc:
+        print(f"Orchestrator: summarization skipped (non-critical): {exc}")
 
 
 def _payload_file_size(payload: dict) -> Optional[int]:

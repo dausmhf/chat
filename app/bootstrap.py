@@ -1,7 +1,11 @@
 import sys
+import os
 from pathlib import Path
 from app.config import settings, client_config_manager
 from app.storage.migrate import run_migrations
+
+
+PLACEHOLDER_VALUES = {"", "mock_key", "xxx", "change_this_dashboard_token"}
 
 def validate_global_config():
     """
@@ -17,6 +21,18 @@ def validate_global_config():
             print(f"CRITICAL ERROR: {var_name} configuration is invalid or missing.")
             sys.exit(1)
 
+    if settings.app_env == "production":
+        production_vars = [
+            ("APP_URL", settings.app_url),
+            ("STORAGE_ROOT", settings.storage_root),
+            ("GEMINI_API_KEY", settings.gemini_api_key),
+            ("ADMIN_DASHBOARD_TOKEN", os.getenv("ADMIN_DASHBOARD_TOKEN", "")),
+        ]
+        for var_name, val in production_vars:
+            if _is_placeholder(val):
+                print(f"CRITICAL ERROR: {var_name} must be configured for production.")
+                sys.exit(1)
+
 def validate_client_config(client_id: str):
     """
     Validates client folder configuration exists and loads correctly.
@@ -27,11 +43,38 @@ def validate_client_config(client_id: str):
         loaded_client_id = configs["client"].get("client_id")
         if loaded_client_id != client_id:
             raise ValueError(f"client_id mismatch in config: found '{loaded_client_id}', expected '{client_id}'")
+        if settings.app_env == "production":
+            validate_client_production_config(client_id, configs)
         print(f"Bootstrap: Successfully validated configuration for client '{client_id}'")
         return configs
     except Exception as e:
         print(f"CRITICAL ERROR: Client '{client_id}' configuration validation failed: {str(e)}")
         sys.exit(1)
+
+
+def validate_client_production_config(client_id: str, configs: dict) -> None:
+    ai_config = configs.get("ai", {})
+    ai_key_env = ai_config.get("api_key_env", "GEMINI_API_KEY")
+    if _is_placeholder(os.getenv(ai_key_env, "")):
+        raise ValueError(f"{ai_key_env} must be set for tenant '{client_id}'.")
+
+    channel_config = configs.get("channel", {})
+    active_channel = channel_config.get("active_channel", "starsender")
+    channel_settings = channel_config.get("channels", {}).get(active_channel, {})
+    if not channel_settings.get("enabled", False):
+        raise ValueError(f"Active channel '{active_channel}' is disabled.")
+    if active_channel == "starsender":
+        api_key_env = channel_settings.get("api_key_env", "STARSENDER_API_KEY")
+        webhook_secret_env = channel_settings.get("webhook_secret_env", "STARSENDER_WEBHOOK_SECRET")
+        if _is_placeholder(os.getenv(api_key_env, "")):
+            raise ValueError(f"{api_key_env} must be set for tenant '{client_id}'.")
+        if _is_placeholder(os.getenv(webhook_secret_env, "")):
+            raise ValueError(f"{webhook_secret_env} must be set for tenant '{client_id}'.")
+
+
+def _is_placeholder(value: str) -> bool:
+    value = (value or "").strip()
+    return value in PLACEHOLDER_VALUES or value.startswith("your_")
 
 def bootstrap_app():
     """

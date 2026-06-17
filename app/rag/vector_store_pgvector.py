@@ -61,6 +61,64 @@ def search_similarity(
         # Return empty list in development if postgres doesn't support vector distance
         return []
 
+def search_fulltext(
+    db: Session,
+    client_id: uuid.UUID,
+    query_text: str,
+    top_k: int = 15,
+) -> List[Tuple[models.KnowledgeChunk, float]]:
+    """
+    PostgreSQL full-text search using tsvector + ts_rank.
+    Uses 'indonesian' text search configuration.
+    Returns list of (KnowledgeChunk, score) sorted by relevance.
+    Falls back to empty list if not on PostgreSQL or if search fails.
+    """
+    if db.bind and db.bind.dialect.name != "postgresql":
+        return []
+
+    try:
+        rows = db.execute(
+            text(
+                """
+                SELECT
+                    kc.id,
+                    ts_rank(kc.search_vector, plainto_tsquery('indonesian', :query)) AS score
+                FROM knowledge_chunks kc
+                JOIN knowledge_documents kd ON kc.document_id = kd.id
+                WHERE kc.client_id = CAST(:client_id AS uuid)
+                  AND kd.is_active = TRUE
+                  AND kc.search_vector IS NOT NULL
+                  AND kc.search_vector @@ plainto_tsquery('indonesian', :query)
+                ORDER BY score DESC
+                LIMIT :top_k
+                """
+            ),
+            {
+                "client_id": str(client_id),
+                "query": query_text,
+                "top_k": int(top_k),
+            },
+        ).mappings().all()
+
+        if not rows:
+            return []
+
+        chunk_ids = [row["id"] for row in rows]
+        chunks = db.query(models.KnowledgeChunk).filter(
+            models.KnowledgeChunk.id.in_(chunk_ids)
+        ).all()
+        chunks_by_id = {str(chunk.id): chunk for chunk in chunks}
+
+        return [
+            (chunks_by_id[str(row["id"])], float(row["score"]))
+            for row in rows
+            if str(row["id"]) in chunks_by_id
+        ]
+    except Exception as e:
+        print(f"pgvector search_fulltext failed: {str(e)}")
+        return []
+
+
 def store_chunk(
     db: Session,
     client_id: uuid.UUID,

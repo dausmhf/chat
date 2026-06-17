@@ -79,7 +79,37 @@ def handle_incoming_webhook(
         print(f"EventHandler: Duplicate webhook detected for key '{event.idempotency_key}'. Skipping processing.")
         return {"status": "duplicate", "message": "Ignored duplicate webhook payload"}
 
-    # 4. Save raw webhook payload
+    # 4. Resolve Contact and Lead Profile
+    contact, lead_profile = resolve_contact_and_lead(
+        db=db,
+        client_id=client_uuid,
+        phone_e164=event.sender_phone,
+        sender_name=event.sender_name,
+        channel=channel
+    )
+
+    # 5. Resolve Conversation
+    conv_repo = ConversationRepository(db, client_uuid)
+    conversation = conv_repo.create_or_update(
+        contact_id=contact.id,
+        channel=channel,
+        last_message_at=datetime.datetime.now(datetime.timezone.utc)
+    )
+
+    # 6. Check Rate Limit
+    from app.ingestion.rate_limiter import check_rate_limit
+    rate = check_rate_limit(db, client_uuid, contact.id, conversation, event.text or "")
+    if not rate.allowed:
+        print(f"EventHandler: Rate limit triggered for {event.sender_phone}. Ingestion aborted.")
+        return {
+            "status": "limited",
+            "reason": rate.reason,
+            "reply": rate.user_message,
+            "conversation_id": str(conversation.id),
+            "contact_id": str(contact.id)
+        }
+
+    # 7. Save raw webhook payload
     raw_payload = models.RawWebhookPayload(
         client_id=client_uuid,
         channel=channel,
@@ -91,24 +121,7 @@ def handle_incoming_webhook(
     db.commit()
     db.refresh(raw_payload)
 
-    # 5. Resolve Contact and Lead Profile
-    contact, lead_profile = resolve_contact_and_lead(
-        db=db,
-        client_id=client_uuid,
-        phone_e164=event.sender_phone,
-        sender_name=event.sender_name,
-        channel=channel
-    )
-
-    # 6. Resolve Conversation
-    conv_repo = ConversationRepository(db, client_uuid)
-    conversation = conv_repo.create_or_update(
-        contact_id=contact.id,
-        channel=channel,
-        last_message_at=datetime.datetime.now(datetime.timezone.utc)
-    )
-
-    # 7. Log incoming message
+    # 8. Log incoming message
     msg_repo = MessageRepository(db, client_uuid)
     message = msg_repo.log_message(
         conversation_id=conversation.id,

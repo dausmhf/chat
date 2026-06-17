@@ -9,6 +9,7 @@ from app.bootstrap import bootstrap_app
 from app.admin.admin_command_service import execute_bot_on, execute_mark_payment, execute_takeover
 from app.admin.dashboard import require_admin_token, router as admin_dashboard_router
 from app.channels.factory import build_channel_adapter
+from app.channels.webhook_security import headers_with_query_secret
 from app.conversation.orchestrator import process_incoming_message
 from app.ingestion.event_handler import get_or_create_client_uuid
 from app.storage.database import get_db
@@ -48,6 +49,10 @@ def _load_tenant_configs_or_404(client_code: str):
     if not client_config_manager.client_exists(client_code):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Tenant '{client_code}' is not configured.")
     return client_config_manager.load_all_configs(client_code)
+
+
+def _webhook_headers(request: Request) -> dict:
+    return headers_with_query_secret(request.headers, request.query_params)
 
 # Startup event logging
 @app.on_event("startup")
@@ -169,7 +174,7 @@ async def verify_waba_webhook(request: Request):
 async def receive_webhook(channel: str, request: Request, db: Session = Depends(get_db)):
     payload = await request.json()
     client_code = payload.get("client_id", "travel_alfalah")
-    headers = dict(request.headers)
+    headers = _webhook_headers(request)
     adapter = _adapter_for_channel(channel, client_code)
     if not adapter.validate_signature(payload, headers):
         return JSONResponse(status_code=status.HTTP_401_UNAUTHORIZED, content={"detail": "Invalid webhook signature"})
@@ -181,7 +186,7 @@ async def receive_client_webhook(channel: str, client_code: str, request: Reques
     _load_tenant_configs_or_404(client_code)
     payload = await request.json()
     payload["client_id"] = client_code
-    headers = dict(request.headers)
+    headers = _webhook_headers(request)
     adapter = _adapter_for_channel(channel, client_code)
     if not adapter.validate_signature(payload, headers):
         return JSONResponse(status_code=status.HTTP_401_UNAUTHORIZED, content={"detail": "Invalid webhook signature"})
