@@ -1,14 +1,19 @@
 import json
 import shutil
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
+from sqlalchemy import func as sa_func
 from sqlalchemy.orm import Session
 
 from app.config import client_config_manager
 from app.ingestion.event_handler import get_or_create_client_uuid
 from app.storage import models
 
+
+# ---------------------------------------------------------------------------
+# CRUD: Create
+# ---------------------------------------------------------------------------
 
 def create_tenant(
     db: Session,
@@ -58,6 +63,10 @@ def create_tenant(
                 "access_token_env": f"WABA_ACCESS_TOKEN_{_env_suffix(client_code)}",
                 "phone_number_id_env": f"WABA_PHONE_NUMBER_ID_{_env_suffix(client_code)}",
                 "verify_token_env": f"WABA_VERIFY_TOKEN_{_env_suffix(client_code)}",
+            },
+            "telegram": {
+                "enabled": False,
+                "bot_token_env": f"TELEGRAM_BOT_TOKEN_{_env_suffix(client_code)}",
             },
         },
     })
@@ -122,6 +131,10 @@ def create_tenant(
     }
 
 
+# ---------------------------------------------------------------------------
+# CRUD: List
+# ---------------------------------------------------------------------------
+
 def list_tenants(db: Session) -> List[Dict[str, str]]:
     tenants = []
     for client_code in client_config_manager.list_client_ids():
@@ -152,6 +165,48 @@ def list_tenants(db: Session) -> List[Dict[str, str]]:
         })
     return tenants
 
+
+# ---------------------------------------------------------------------------
+# CRUD: Get Detail (all configs + stats)
+# ---------------------------------------------------------------------------
+
+def get_tenant_detail(db: Session, client_code: str) -> Dict[str, Any]:
+    """Return full config detail + stats for a tenant."""
+    if not client_config_manager.client_exists(client_code):
+        raise ValueError(f"Tenant '{client_code}' tidak ditemukan.")
+
+    configs = client_config_manager.load_all_configs(client_code)
+
+    # Get API keys info (masked)
+    from app.admin.secrets_manager import get_secrets_masked
+    api_keys = get_secrets_masked(client_code)
+
+    # Get stats from DB
+    stats = get_tenant_stats(db, client_code)
+
+    return {
+        "client_code": client_code,
+        "status": _tenant_status(configs["client"]),
+        "configs": {
+            "client": configs["client"],
+            "channel": configs["channel"],
+            "ai": configs["ai"],
+            "payment": configs["payment"],
+            "feature_flags": configs["feature_flags"],
+        },
+        "api_keys": api_keys,
+        "stats": stats,
+        "urls": {
+            "dashboard": f"/admin/{client_code}/dashboard",
+            "webhook_starsender": f"/webhooks/starsender/{client_code}",
+            "webhook_waba": f"/webhooks/waba/{client_code}",
+        },
+    }
+
+
+# ---------------------------------------------------------------------------
+# CRUD: Update
+# ---------------------------------------------------------------------------
 
 def update_tenant(
     db: Session,
@@ -206,6 +261,131 @@ def update_tenant(
     return get_tenant(db, client_code)
 
 
+def update_tenant_config_section(
+    db: Session,
+    *,
+    client_code: str,
+    section: str,
+    config_data: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Update a specific config section (client, channel, ai, payment, feature_flags)."""
+    valid_sections = {"client", "channel", "ai", "payment", "feature_flags"}
+    if section not in valid_sections:
+        raise ValueError(f"Section harus salah satu dari: {', '.join(sorted(valid_sections))}")
+    if not client_config_manager.client_exists(client_code):
+        raise ValueError(f"Tenant '{client_code}' tidak ditemukan.")
+
+    section_to_file = {
+        "client": "client_config.json",
+        "channel": "channel_config.json",
+        "ai": "ai_config.json",
+        "payment": "payment_config.json",
+        "feature_flags": "feature_flags.json",
+    }
+    writable_config = _ensure_writable_config(client_code)
+    config_path = writable_config / section_to_file[section]
+
+    existing = _read_json(config_path)
+    # Deep merge: update existing with new data
+    merged = _deep_merge(existing, config_data)
+    _write_json(config_path, merged)
+
+    if section == "client":
+        _sync_client_row(db, client_code, merged)
+
+    _audit_tenant_update(db, client_code, f"config_{section}_updated", {
+        "section": section,
+        "changes": config_data,
+    })
+    return {"section": section, "config": merged}
+
+
+# ---------------------------------------------------------------------------
+# CRUD: Delete
+# ---------------------------------------------------------------------------
+
+def delete_tenant(db: Session, client_code: str) -> Dict[str, str]:
+    """Soft-delete a tenant: set status to inactive and rename config folder."""
+    if not client_config_manager.client_exists(client_code):
+        raise ValueError(f"Tenant '{client_code}' tidak ditemukan.")
+
+    # Set inactive in config
+    writable_config = _ensure_writable_config(client_code)
+    client_config_path = writable_config / "client_config.json"
+    client_config = _read_json(client_config_path)
+    client_config["status"] = "deleted"
+    _write_json(client_config_path, client_config)
+
+    # Soft-delete in DB
+    client = db.query(models.Client).filter(models.Client.client_code == client_code).first()
+    if client:
+        client.status = "deleted"
+        db.commit()
+
+    # Rename folder to prevent it from being picked up
+    tenant_dir = client_config_manager.get_writable_client_dir(client_code)
+    deleted_dir = tenant_dir.parent / f"_deleted_{client_code}"
+    if tenant_dir.exists() and not deleted_dir.exists():
+        tenant_dir.rename(deleted_dir)
+
+    # Also handle the read-only source if different
+    source_dir = client_config_manager.get_client_dir(client_code)
+    if source_dir.exists() and source_dir.resolve() != tenant_dir.resolve():
+        deleted_source = source_dir.parent / f"_deleted_{client_code}"
+        if not deleted_source.exists():
+            source_dir.rename(deleted_source)
+
+    _audit_tenant_update(db, client_code, "tenant_deleted", {
+        "client_code": client_code,
+    })
+    return {"client_code": client_code, "status": "deleted"}
+
+
+# ---------------------------------------------------------------------------
+# Stats
+# ---------------------------------------------------------------------------
+
+def get_tenant_stats(db: Session, client_code: str) -> Dict[str, int]:
+    """Get basic stats for a tenant."""
+    try:
+        client_uuid = get_or_create_client_uuid(db, client_code)
+    except Exception:
+        return {"conversations": 0, "contacts": 0, "bookings": 0, "knowledge_docs": 0, "messages": 0}
+
+    conversations = db.query(sa_func.count(models.Conversation.id)).filter(
+        models.Conversation.client_id == client_uuid
+    ).scalar() or 0
+
+    contacts = db.query(sa_func.count(models.Contact.id)).filter(
+        models.Contact.client_id == client_uuid
+    ).scalar() or 0
+
+    bookings = db.query(sa_func.count(models.Booking.id)).filter(
+        models.Booking.client_id == client_uuid
+    ).scalar() or 0
+
+    knowledge_docs = db.query(sa_func.count(models.KnowledgeDocument.id)).filter(
+        models.KnowledgeDocument.client_id == client_uuid,
+        models.KnowledgeDocument.is_active == True,
+    ).scalar() or 0
+
+    messages = db.query(sa_func.count(models.Message.id)).filter(
+        models.Message.client_id == client_uuid
+    ).scalar() or 0
+
+    return {
+        "conversations": conversations,
+        "contacts": contacts,
+        "bookings": bookings,
+        "knowledge_docs": knowledge_docs,
+        "messages": messages,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Status helpers
+# ---------------------------------------------------------------------------
+
 def set_tenant_status(db: Session, client_code: str, status: str) -> Dict[str, str]:
     normalized = _normalize_status(status)
     return update_tenant(db, client_code=client_code, status=normalized)
@@ -224,6 +404,10 @@ def is_tenant_active(client_code: str) -> bool:
     client_config = client_config_manager.load_json_config(client_code, "client_config.json")
     return _tenant_status(client_config) == "active"
 
+
+# ---------------------------------------------------------------------------
+# Internal helpers
+# ---------------------------------------------------------------------------
 
 def _ensure_writable_config(client_code: str) -> Path:
     source_config = client_config_manager.get_client_dir(client_code) / "config"
@@ -256,16 +440,19 @@ def _sync_client_row(db: Session, client_code: str, client_config: dict) -> None
 
 
 def _audit_tenant_update(db: Session, client_code: str, event_type: str, new_value: dict) -> None:
-    client_uuid = get_or_create_client_uuid(db, client_code)
-    db.add(models.AuditLog(
-        client_id=client_uuid,
-        actor_type="admin",
-        event_type=event_type,
-        entity_type="clients",
-        entity_id=client_uuid,
-        new_value=new_value,
-    ))
-    db.commit()
+    try:
+        client_uuid = get_or_create_client_uuid(db, client_code)
+        db.add(models.AuditLog(
+            client_id=client_uuid,
+            actor_type="admin",
+            event_type=event_type,
+            entity_type="clients",
+            entity_id=client_uuid,
+            new_value=new_value,
+        ))
+        db.commit()
+    except Exception:
+        pass
 
 
 def _tenant_status(client_config: dict) -> str:
@@ -276,10 +463,21 @@ def _normalize_status(value: str) -> str:
     normalized = (value or "active").strip().lower()
     if normalized in {"active", "enabled", "on"}:
         return "active"
-    if normalized in {"inactive", "disabled", "off", "paused"}:
+    if normalized in {"inactive", "disabled", "off", "paused", "deleted"}:
         return "inactive"
     raise ValueError("Status tenant harus 'active' atau 'inactive'.")
 
 
 def _env_suffix(client_code: str) -> str:
     return "".join(ch if ch.isalnum() else "_" for ch in client_code.upper())
+
+
+def _deep_merge(base: dict, override: dict) -> dict:
+    """Recursively merge override into base. Override values win."""
+    result = base.copy()
+    for key, value in override.items():
+        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
+            result[key] = _deep_merge(result[key], value)
+        else:
+            result[key] = value
+    return result

@@ -8,7 +8,15 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.admin.admin_command_service import execute_bot_on, execute_takeover
-from app.admin.tenant_service import create_tenant, list_tenants, set_tenant_status, update_tenant
+from app.admin.tenant_service import (
+    create_tenant,
+    delete_tenant,
+    get_tenant_detail,
+    list_tenants,
+    set_tenant_status,
+    update_tenant,
+    update_tenant_config_section,
+)
 from app.config import client_config_manager, settings
 from app.ingestion.event_handler import get_or_create_client_uuid
 from app.rag.ingestion_service import ingest_file_knowledge, ingest_text_knowledge, list_knowledge_documents
@@ -37,6 +45,14 @@ class TenantUpdateRequest(BaseModel):
     status: Optional[str] = None
 
 
+class ConfigSectionUpdateRequest(BaseModel):
+    config: Dict[str, Any]
+
+
+class ApiKeysUpdateRequest(BaseModel):
+    keys: Dict[str, str]
+
+
 class KnowledgeTextRequest(BaseModel):
     title: str = Field(min_length=2, max_length=220)
     text: str = Field(min_length=20)
@@ -60,6 +76,10 @@ def require_admin_token(request: Request, client_code: Optional[str] = None, x_a
     if provided != expected:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid admin token.")
 
+
+# ===========================================================================
+# Tenant CRUD Endpoints
+# ===========================================================================
 
 @router.get("/admin/{client_code}/dashboard", response_class=HTMLResponse)
 async def admin_dashboard(client_code: str):
@@ -95,6 +115,18 @@ async def list_tenants_endpoint(
     return {"tenants": list_tenants(db)}
 
 
+@router.get("/admin/api/tenants/{client_code}/detail")
+async def get_tenant_detail_endpoint(
+    client_code: str,
+    _: None = Depends(require_admin_token),
+    db: Session = Depends(get_db),
+):
+    try:
+        return get_tenant_detail(db, client_code)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+
 @router.patch("/admin/api/tenants/{client_code}")
 async def update_tenant_endpoint(
     client_code: str,
@@ -105,6 +137,37 @@ async def update_tenant_endpoint(
     try:
         return update_tenant(db, client_code=client_code, **body.dict(exclude_unset=True))
     except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+@router.put("/admin/api/tenants/{client_code}/config/{section}")
+async def update_config_section_endpoint(
+    client_code: str,
+    section: str,
+    body: ConfigSectionUpdateRequest,
+    _: None = Depends(require_admin_token),
+    db: Session = Depends(get_db),
+):
+    try:
+        return update_tenant_config_section(
+            db, client_code=client_code, section=section, config_data=body.config
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+@router.put("/admin/api/tenants/{client_code}/api-keys")
+async def update_api_keys_endpoint(
+    client_code: str,
+    body: ApiKeysUpdateRequest,
+    _: None = Depends(require_admin_token),
+    db: Session = Depends(get_db),
+):
+    from app.admin.secrets_manager import set_secrets_bulk
+    try:
+        result = set_secrets_bulk(client_code, body.keys)
+        return {"api_keys": result}
+    except Exception as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
 
@@ -131,6 +194,22 @@ async def disable_tenant_endpoint(
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
+
+@router.delete("/admin/api/tenants/{client_code}")
+async def delete_tenant_endpoint(
+    client_code: str,
+    _: None = Depends(require_admin_token),
+    db: Session = Depends(get_db),
+):
+    try:
+        return delete_tenant(db, client_code)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+# ===========================================================================
+# Conversation & Knowledge Endpoints (unchanged)
+# ===========================================================================
 
 @router.get("/admin/{client_code}/api/conversations")
 async def list_conversations(
@@ -404,6 +483,10 @@ async def dashboard_takeover(
     return {"success": success, "message": message}
 
 
+# ===========================================================================
+# Helpers
+# ===========================================================================
+
 def _conversation_or_404(db: Session, client_uuid: uuid.UUID, conversation_id: uuid.UUID) -> models.Conversation:
     conversation = (
         db.query(models.Conversation)
@@ -597,7 +680,7 @@ def _dashboard_html(client_code: str) -> str:
       try {{ return new Date(value).toLocaleString("id-ID"); }} catch {{ return value; }}
     }}
     function esc(value) {{
-      return String(value ?? "").replace(/[&<>"']/g, ch => ({{"&":"&amp;","<":"&lt;",">":"&gt;","\\"":"&quot;","'":"&#39;"}}[ch]));
+      return String(value ?? "").replace(/[&<>"']/g, ch => ({{"&":"&amp;","<":"&lt;",">":"&gt;","\\\\"":"&quot;","'":"&#39;"}}[ch]));
     }}
     function statusBadge(conversation) {{
       if (conversation.bot_enabled && conversation.status === "bot_active") return '<span class="badge on">Bot ON</span>';
