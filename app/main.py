@@ -100,194 +100,248 @@ def _super_admin_html() -> str:
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg:#0c0e14;--bg2:#12141d;--panel:#181b27;--panel2:#1e2233;
-  --glass:rgba(24,27,39,.72);--glass-border:rgba(255,255,255,.06);
-  --line:#252a3a;--line-light:#2f3548;
-  --text:#e8eaf0;--text2:#a0a8be;--muted:#636d85;
-  --accent:#6c63ff;--accent2:#8b83ff;--accent-glow:rgba(108,99,255,.18);
-  --green:#34d399;--green-bg:rgba(52,211,153,.12);--green-border:rgba(52,211,153,.25);
-  --red:#f87171;--red-bg:rgba(248,113,113,.12);--red-border:rgba(248,113,113,.25);
-  --amber:#fbbf24;--amber-bg:rgba(251,191,36,.10);--amber-border:rgba(251,191,36,.22);
-  --blue:#60a5fa;--blue-bg:rgba(96,165,250,.10);
-  --radius:10px;--radius-lg:14px;
-  --shadow:0 2px 12px rgba(0,0,0,.28);
-  --transition:all .2s cubic-bezier(.4,0,.2,1);
+  --bg:#f0f2f5;--white:#ffffff;--panel:#ffffff;
+  --border:#e5e9f0;--border-light:#f0f2f5;
+  --text:#1a1d26;--text2:#5a6178;--muted:#8b92a8;
+  --primary:#2563eb;--primary-light:#3b82f6;--primary-bg:#eff6ff;--primary-border:#bfdbfe;
+  --green:#10b981;--green-bg:#ecfdf5;--green-border:#a7f3d0;
+  --red:#ef4444;--red-bg:#fef2f2;--red-border:#fecaca;
+  --amber:#f59e0b;--amber-bg:#fffbeb;--amber-border:#fde68a;
+  --purple:#8b5cf6;--purple-bg:#f5f3ff;
+  --radius:12px;--radius-lg:16px;
+  --shadow:0 1px 3px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04);
+  --shadow-md:0 4px 12px rgba(0,0,0,.08);
+  --shadow-lg:0 10px 30px rgba(0,0,0,.1);
+  --transition:all .2s ease;
 }
 html{font-size:14px}
-body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow:hidden}
+body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow:hidden}
 
 /* Toast */
-#toast{position:fixed;top:20px;right:20px;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none}
-.toast-item{padding:10px 18px;border-radius:var(--radius);font-size:13px;font-weight:600;color:#fff;backdrop-filter:blur(12px);pointer-events:auto;animation:toastIn .3s ease,toastOut .3s ease 2.7s forwards;max-width:380px}
-.toast-item.success{background:rgba(52,211,153,.85);border:1px solid var(--green)}
-.toast-item.error{background:rgba(248,113,113,.85);border:1px solid var(--red)}
-.toast-item.info{background:rgba(108,99,255,.85);border:1px solid var(--accent)}
-@keyframes toastIn{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:translateX(0)}}
-@keyframes toastOut{from{opacity:1}to{opacity:0;transform:translateY(-10px)}}
+#toast{position:fixed;top:20px;right:20px;z-index:9999;display:flex;flex-direction:column;gap:8px}
+.toast-item{padding:12px 20px;border-radius:var(--radius);font-size:13px;font-weight:600;color:#fff;box-shadow:var(--shadow-lg);animation:toastIn .3s ease,toastOut .4s ease 2.6s forwards;max-width:380px}
+.toast-item.success{background:var(--green)}
+.toast-item.error{background:var(--red)}
+.toast-item.info{background:var(--primary)}
+@keyframes toastIn{from{opacity:0;transform:translateY(-12px) scale(.95)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes toastOut{from{opacity:1}to{opacity:0;transform:translateY(-8px)}}
 
 /* Layout */
-.app{display:grid;grid-template-columns:320px 1fr;grid-template-rows:60px 1fr;height:100vh}
-header{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;padding:0 20px;background:var(--panel);border-bottom:1px solid var(--line);z-index:10}
-.logo{display:flex;align-items:center;gap:10px}
-.logo h1{font-size:17px;font-weight:800;letter-spacing:-.3px}
-.logo span{font-size:11px;font-weight:600;padding:3px 8px;border-radius:6px;background:var(--accent-glow);color:var(--accent2);border:1px solid rgba(108,99,255,.2)}
-.header-actions{display:flex;align-items:center;gap:8px}
-
-/* Inputs */
-input,select,textarea{font-family:inherit;font-size:13px;color:var(--text);background:var(--bg2);border:1px solid var(--line);border-radius:var(--radius);padding:0 12px;height:38px;outline:none;transition:var(--transition)}
-input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow)}
-textarea{height:auto;min-height:80px;padding:10px 12px;resize:vertical}
-input::placeholder{color:var(--muted)}
-
-/* Buttons */
-button{font-family:inherit;font-size:13px;font-weight:600;border:1px solid var(--line);border-radius:var(--radius);background:var(--panel2);color:var(--text);height:38px;padding:0 16px;cursor:pointer;transition:var(--transition);white-space:nowrap}
-button:hover{background:var(--line);border-color:var(--line-light)}
-button:active{transform:scale(.97)}
-button:disabled{opacity:.4;cursor:not-allowed;transform:none}
-button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
-button.primary:hover{background:var(--accent2);border-color:var(--accent2)}
-button.danger{background:var(--red-bg);border-color:var(--red-border);color:var(--red)}
-button.danger:hover{background:rgba(248,113,113,.2)}
-button.success{background:var(--green-bg);border-color:var(--green-border);color:var(--green)}
-button.ghost{background:transparent;border-color:transparent;color:var(--text2)}
-button.ghost:hover{color:var(--text);background:var(--panel2)}
-button.sm{height:32px;font-size:12px;padding:0 12px}
+.app{display:grid;grid-template-columns:240px 1fr;height:100vh}
 
 /* Sidebar */
-.sidebar{background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;overflow:hidden}
-.sidebar-header{padding:14px 16px 10px;display:flex;flex-direction:column;gap:10px;border-bottom:1px solid var(--line)}
-.sidebar-header h2{font-size:13px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.8px}
-.search-wrap{position:relative}
-.search-wrap input{width:100%;padding-left:36px;height:36px}
-.search-wrap::before{content:"⌕";position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:15px}
-.sidebar-list{flex:1;overflow-y:auto;overflow-x:hidden}
-.tenant-item{width:100%;text-align:left;border:none;border-radius:0;border-bottom:1px solid var(--line);height:auto;padding:12px 16px;display:grid;gap:4px;cursor:pointer;transition:var(--transition)}
-.tenant-item:hover{background:var(--panel2)}
-.tenant-item.selected{background:var(--accent-glow);border-left:3px solid var(--accent)}
-.tenant-item .t-row{display:flex;align-items:center;justify-content:space-between;gap:8px}
-.tenant-item .t-name{font-weight:700;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.tenant-item .t-code{font-size:11px;color:var(--muted);font-family:'Courier New',monospace}
-.sidebar-footer{padding:12px 16px;border-top:1px solid var(--line)}
+.sidebar{background:var(--white);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.sidebar-brand{padding:24px 20px 20px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border)}
+.sidebar-brand .logo-icon{width:36px;height:36px;background:var(--primary);border-radius:10px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:16px}
+.sidebar-brand h1{font-size:16px;font-weight:800;color:var(--text);letter-spacing:-.3px}
+
+.sidebar-search{padding:16px 16px 8px}
+.sidebar-search input{width:100%;height:40px;border:1px solid var(--border);border-radius:10px;padding:0 14px 0 38px;font-size:13px;background:var(--bg);color:var(--text);outline:none;transition:var(--transition)}
+.sidebar-search input:focus{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-bg)}
+.sidebar-search{position:relative}
+.sidebar-search::after{content:"🔍";position:absolute;left:28px;top:50%;transform:translateY(-30%);font-size:13px;pointer-events:none}
+
+.sidebar-nav{padding:8px 12px;display:flex;flex-direction:column;gap:2px}
+.nav-label{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1.2px;padding:12px 8px 6px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;font-size:13px;font-weight:500;color:var(--text2);cursor:pointer;transition:var(--transition);border:none;background:transparent;width:100%;text-align:left}
+.nav-item:hover{background:var(--bg);color:var(--text)}
+.nav-item.active{background:var(--primary);color:#fff;font-weight:600;box-shadow:0 2px 8px rgba(37,99,235,.3)}
+.nav-item .icon{font-size:18px;width:22px;text-align:center}
+.nav-item .badge-count{margin-left:auto;background:var(--red);color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;min-width:20px;text-align:center}
+
+.sidebar-tenants{flex:1;overflow-y:auto;padding:0 12px 12px}
+.tenant-item{width:100%;text-align:left;border:none;border-radius:10px;padding:12px;display:grid;gap:3px;cursor:pointer;transition:var(--transition);background:transparent;margin-bottom:2px}
+.tenant-item:hover{background:var(--bg)}
+.tenant-item.selected{background:var(--primary-bg);border:1px solid var(--primary-border)}
+.tenant-item .t-row{display:flex;align-items:center;justify-content:space-between;gap:6px}
+.tenant-item .t-name{font-weight:600;font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tenant-item .t-code{font-size:11px;color:var(--muted)}
+
+.sidebar-footer{padding:12px 16px;border-top:1px solid var(--border)}
+.sidebar-footer button{width:100%}
 
 /* Badges */
-.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;letter-spacing:.3px}
+.badge{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600}
+.badge::before{content:"";width:6px;height:6px;border-radius:50%}
 .badge.active{color:var(--green);background:var(--green-bg);border:1px solid var(--green-border)}
+.badge.active::before{background:var(--green)}
 .badge.inactive{color:var(--red);background:var(--red-bg);border:1px solid var(--red-border)}
-.badge::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.badge.inactive::before{background:var(--red)}
+
+/* Main */
+.main-area{display:flex;flex-direction:column;overflow:hidden}
+
+/* Top bar */
+.topbar{height:64px;background:var(--white);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 28px;flex-shrink:0}
+.topbar-left{display:flex;align-items:center;gap:16px}
+.topbar-left h2{font-size:18px;font-weight:700}
+.topbar-right{display:flex;align-items:center;gap:12px}
+.topbar-right input{height:40px;width:200px;border:1px solid var(--border);border-radius:10px;padding:0 14px;font-size:13px;background:var(--bg);outline:none}
+.topbar-right input:focus{border-color:var(--primary)}
+.user-avatar{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--purple));display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:14px;cursor:pointer}
 
 /* Content */
-.content{overflow-y:auto;padding:24px;background:var(--bg)}
+.content{flex:1;overflow-y:auto;padding:24px 28px}
 
-/* Tabs */
-.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:20px;overflow-x:auto;padding-bottom:0}
-.tab-btn{border:none;border-radius:8px 8px 0 0;background:transparent;color:var(--muted);font-weight:600;padding:10px 18px;height:auto;font-size:13px;cursor:pointer;transition:var(--transition);border-bottom:2px solid transparent;white-space:nowrap}
-.tab-btn:hover{color:var(--text);background:var(--panel2)}
-.tab-btn.active{color:var(--accent2);border-bottom-color:var(--accent);background:var(--panel)}
-.tab-panel{display:none}
-.tab-panel.active{display:block;animation:fadeIn .25s ease}
-@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+/* Inputs */
+input,select,textarea{font-family:inherit;font-size:13px;color:var(--text);background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:0 14px;height:42px;outline:none;transition:var(--transition)}
+input:focus,select:focus,textarea:focus{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-bg)}
+textarea{height:auto;min-height:80px;padding:12px 14px;resize:vertical}
+input::placeholder{color:var(--muted)}
+select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%238b92a8' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px}
 
-/* Cards */
-.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius-lg);padding:20px;margin-bottom:16px;box-shadow:var(--shadow)}
-.card-header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
-.card-header h3{font-size:15px;font-weight:700}
-.card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+/* Buttons */
+button{font-family:inherit;font-size:13px;font-weight:600;border:1px solid var(--border);border-radius:var(--radius);background:var(--white);color:var(--text);height:42px;padding:0 20px;cursor:pointer;transition:var(--transition);white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+button:hover{background:var(--bg);border-color:var(--border)}
+button:active{transform:scale(.98)}
+button:disabled{opacity:.4;cursor:not-allowed;transform:none}
+button.primary{background:var(--primary);border-color:var(--primary);color:#fff;box-shadow:0 2px 6px rgba(37,99,235,.25)}
+button.primary:hover{background:var(--primary-light)}
+button.danger{background:var(--white);border-color:var(--red-border);color:var(--red)}
+button.danger:hover{background:var(--red-bg)}
+button.success{background:var(--white);border-color:var(--green-border);color:var(--green)}
+button.success:hover{background:var(--green-bg)}
+button.ghost{background:transparent;border-color:transparent;color:var(--text2)}
+button.ghost:hover{background:var(--bg);color:var(--text)}
+button.sm{height:34px;font-size:12px;padding:0 14px;border-radius:8px}
 
 /* Stat Cards */
-.stats-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:20px}
-.stat-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius-lg);padding:16px;text-align:center;transition:var(--transition)}
-.stat-card:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:0 4px 16px rgba(108,99,255,.12)}
-.stat-card .stat-value{font-size:28px;font-weight:800;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-.stat-card .stat-label{font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-top:4px}
+.stats-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px;margin-bottom:24px}
+.stat-card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;display:flex;align-items:center;gap:16px;transition:var(--transition);box-shadow:var(--shadow)}
+.stat-card:hover{box-shadow:var(--shadow-md);transform:translateY(-2px)}
+.stat-icon{width:48px;height:48px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
+.stat-icon.blue{background:var(--primary-bg);color:var(--primary)}
+.stat-icon.green{background:var(--green-bg);color:var(--green)}
+.stat-icon.purple{background:var(--purple-bg);color:var(--purple)}
+.stat-icon.amber{background:var(--amber-bg);color:var(--amber)}
+.stat-info .stat-value{font-size:24px;font-weight:800;color:var(--text);line-height:1}
+.stat-info .stat-label{font-size:12px;color:var(--muted);font-weight:500;margin-top:4px}
 
-/* Form Grid */
-.form-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
-.form-group{display:flex;flex-direction:column;gap:5px}
+/* Cards */
+.card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px;margin-bottom:20px;box-shadow:var(--shadow)}
+.card-header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px}
+.card-header h3{font-size:16px;font-weight:700;color:var(--text)}
+.card-header .subtitle{font-size:12px;color:var(--muted);font-weight:500}
+
+/* Tabs */
+.tabs{display:flex;gap:4px;margin-bottom:24px;overflow-x:auto;background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:4px;box-shadow:var(--shadow)}
+.tab-btn{border:none;border-radius:8px;background:transparent;color:var(--text2);font-weight:500;padding:10px 18px;height:auto;font-size:13px;cursor:pointer;transition:var(--transition);white-space:nowrap;box-shadow:none}
+.tab-btn:hover{color:var(--text);background:var(--bg)}
+.tab-btn.active{color:#fff;background:var(--primary);font-weight:600;box-shadow:0 2px 6px rgba(37,99,235,.25)}
+.tab-panel{display:none}
+.tab-panel.active{display:block;animation:fadeIn .25s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+
+/* Form */
+.form-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+.form-group{display:flex;flex-direction:column;gap:6px}
 .form-group.full{grid-column:1/-1}
-.form-label{font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.4px}
-.form-row{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap}
-.form-actions{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}
+.form-label{font-size:12px;font-weight:600;color:var(--text2)}
+.form-actions{display:flex;gap:8px;margin-top:20px;flex-wrap:wrap}
 
 /* Key Row */
-.key-row{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line)}
+.key-row{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;padding:14px 0;border-bottom:1px solid var(--border-light)}
 .key-row:last-child{border-bottom:none}
-.key-info{display:flex;flex-direction:column;gap:4px}
-.key-name{font-weight:600;font-size:13px}
-.key-source{font-size:11px;color:var(--muted)}
+.key-info{display:flex;flex-direction:column;gap:3px}
+.key-name{font-weight:600;font-size:13px;color:var(--text)}
+.key-source{font-size:11px;font-weight:500}
 .key-source.set{color:var(--green)}
 .key-source.not-set{color:var(--red)}
 .key-input-wrap{display:flex;gap:6px;align-items:center}
-.key-input-wrap input{width:280px}
+.key-input-wrap input{width:260px}
 
 /* Toggle */
-.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line)}
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border-light)}
 .toggle-row:last-child{border-bottom:none}
 .toggle-label{font-weight:600;font-size:13px}
-.toggle{position:relative;width:44px;height:24px;background:var(--line);border-radius:12px;cursor:pointer;transition:var(--transition);flex-shrink:0}
-.toggle.on{background:var(--accent)}
-.toggle::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;background:#fff;border-radius:50%;transition:var(--transition)}
+.toggle{position:relative;width:46px;height:26px;background:var(--border);border-radius:13px;cursor:pointer;transition:var(--transition);flex-shrink:0}
+.toggle.on{background:var(--primary)}
+.toggle::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;background:#fff;border-radius:50%;transition:var(--transition);box-shadow:0 1px 3px rgba(0,0,0,.15)}
 .toggle.on::after{left:23px}
 
 /* JSON Editor */
-.json-editor{width:100%;min-height:300px;font-family:'Courier New',monospace;font-size:12px;line-height:1.6;background:var(--bg2);color:var(--green);border:1px solid var(--line);border-radius:var(--radius);padding:14px;resize:vertical}
+.json-editor{width:100%;min-height:300px;font-family:'Courier New',monospace;font-size:12px;line-height:1.6;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);padding:16px;resize:vertical}
 
-/* Links */
-.url-display{display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--bg2);border:1px solid var(--line);border-radius:var(--radius);font-family:'Courier New',monospace;font-size:12px;color:var(--blue);word-break:break-all}
+/* URL display */
+.url-display{display:flex;align-items:center;gap:8px;padding:12px 16px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);font-family:'Courier New',monospace;font-size:12px;color:var(--primary);word-break:break-all}
 
 /* Empty state */
-.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:60px 20px;color:var(--muted);text-align:center}
-.empty-state .icon{font-size:48px;opacity:.3}
-.empty-state p{font-size:14px;max-width:300px}
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:80px 20px;color:var(--muted);text-align:center}
+.empty-state .icon{font-size:56px;opacity:.4}
+.empty-state p{font-size:15px;max-width:300px;line-height:1.5}
 
 /* Modal */
-.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(6px);z-index:100;display:none;align-items:center;justify-content:center}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);backdrop-filter:blur(4px);z-index:100;display:none;align-items:center;justify-content:center}
 .modal-overlay.show{display:flex}
-.modal{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius-lg);padding:28px;width:90%;max-width:540px;box-shadow:0 20px 60px rgba(0,0,0,.4);animation:modalIn .2s ease}
-@keyframes modalIn{from{opacity:0;transform:scale(.95) translateY(10px)}to{opacity:1;transform:scale(1) translateY(0)}}
-.modal h2{font-size:18px;font-weight:800;margin-bottom:20px}
+.modal{background:var(--white);border:1px solid var(--border);border-radius:var(--radius-lg);padding:32px;width:90%;max-width:520px;box-shadow:var(--shadow-lg);animation:modalIn .25s ease}
+@keyframes modalIn{from{opacity:0;transform:scale(.95) translateY(8px)}to{opacity:1;transform:scale(1) translateY(0)}}
+.modal h2{font-size:20px;font-weight:800;margin-bottom:6px}
+.modal .modal-sub{font-size:13px;color:var(--muted);margin-bottom:24px}
+
+/* Table */
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:10px 12px;font-weight:600;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid var(--border)}
+td{padding:10px 12px;border-bottom:1px solid var(--border-light);color:var(--text2)}
+tr:hover td{background:var(--bg)}
 
 /* Responsive */
 @media(max-width:900px){
-  .app{grid-template-columns:1fr;grid-template-rows:60px auto 1fr}
-  .sidebar{max-height:40vh;border-right:none;border-bottom:1px solid var(--line)}
+  .app{grid-template-columns:1fr}
+  .sidebar{display:none}
   .form-grid{grid-template-columns:1fr}
   .stats-row{grid-template-columns:repeat(2,1fr)}
-  .key-input-wrap input{width:180px}
+  .key-input-wrap input{width:160px}
 }
 </style>
 </head>
 <body>
 <div class="app">
-<header>
-  <div class="logo">
-    <h1>HalloTravel</h1>
-    <span>Super Admin</span>
-  </div>
-  <div class="header-actions">
-    <input id="token" type="password" placeholder="Admin token" style="width:200px">
-    <button id="saveToken" class="primary">Login</button>
-    <button id="refresh" class="ghost">↻ Refresh</button>
-  </div>
-</header>
+<!-- Sidebar -->
 <aside class="sidebar">
-  <div class="sidebar-header">
-    <h2>Tenants</h2>
-    <div class="search-wrap"><input id="searchTenant" type="text" placeholder="Cari tenant..."></div>
+  <div class="sidebar-brand">
+    <div class="logo-icon">H</div>
+    <h1>HalloTravel</h1>
   </div>
-  <div class="sidebar-list" id="tenantList"><div class="empty-state"><div class="icon">🔐</div><p>Masukkan admin token untuk memulai</p></div></div>
+  <div class="sidebar-search"><input id="searchTenant" type="text" placeholder="Cari tenant..."></div>
+  <div class="sidebar-nav">
+    <div class="nav-label">Menu</div>
+    <button class="nav-item active" id="navHome"><span class="icon">🏠</span> Home</button>
+    <button class="nav-item" id="navTenants"><span class="icon">🏢</span> Tenants</button>
+    <button class="nav-item" id="navSettings"><span class="icon">⚙️</span> Settings</button>
+  </div>
+  <div class="sidebar-nav">
+    <div class="nav-label">Tenants</div>
+  </div>
+  <div class="sidebar-tenants" id="tenantList">
+    <div class="empty-state" style="padding:30px 10px"><div class="icon" style="font-size:32px">🔐</div><p style="font-size:12px">Masukkan token untuk memuat</p></div>
+  </div>
   <div class="sidebar-footer">
     <button id="openAddModal" class="primary" style="width:100%">＋ Tambah Tenant</button>
   </div>
 </aside>
-<main class="content" id="mainContent">
-  <div class="empty-state"><div class="icon">📋</div><p>Pilih tenant dari sidebar untuk melihat detail</p></div>
-</main>
+
+<!-- Main -->
+<div class="main-area">
+  <div class="topbar">
+    <div class="topbar-left"><h2 id="pageTitle">Dashboard</h2></div>
+    <div class="topbar-right">
+      <input id="token" type="password" placeholder="Admin token">
+      <button id="saveToken" class="primary sm">Login</button>
+      <button id="refresh" class="ghost sm">↻</button>
+      <div class="user-avatar" title="Super Admin">SA</div>
+    </div>
+  </div>
+  <div class="content" id="mainContent">
+    <div class="empty-state"><div class="icon">📋</div><p>Pilih tenant dari sidebar atau masukkan admin token untuk memulai</p></div>
+  </div>
+</div>
 </div>
 
 <!-- Add Tenant Modal -->
 <div class="modal-overlay" id="addModal">
 <div class="modal">
   <h2>Tambah Tenant Baru</h2>
+  <p class="modal-sub">Buat tenant baru dengan konfigurasi default</p>
   <div class="form-grid">
     <div class="form-group"><div class="form-label">Client Code</div><input id="newClientCode" placeholder="travel_baru"></div>
     <div class="form-group"><div class="form-label">Brand Name</div><input id="newBrandName" placeholder="Nama Travel"></div>
@@ -301,14 +355,14 @@ button.sm{height:32px;font-size:12px;padding:0 12px}
 </div>
 </div>
 
-<!-- Confirm Delete Modal -->
+<!-- Delete Modal -->
 <div class="modal-overlay" id="deleteModal">
 <div class="modal">
-  <h2 style="color:var(--red)">Hapus Tenant?</h2>
-  <p style="color:var(--text2);margin-bottom:20px">Tenant akan dinonaktifkan dan folder config akan di-rename. Data di database tidak dihapus.</p>
-  <p style="font-weight:700;margin-bottom:20px" id="deleteTargetName"></p>
+  <h2 style="color:var(--red)">⚠️ Hapus Tenant</h2>
+  <p class="modal-sub">Tenant akan dinonaktifkan dan folder config akan di-rename. Data di database tetap tersimpan.</p>
+  <p style="font-weight:700;margin-bottom:20px;font-size:15px" id="deleteTargetName"></p>
   <div class="form-actions">
-    <button id="confirmDeleteBtn" class="danger">Ya, Hapus</button>
+    <button id="confirmDeleteBtn" class="danger">Ya, Hapus Tenant</button>
     <button id="closeDeleteModal" class="ghost">Batal</button>
   </div>
 </div>
@@ -317,40 +371,31 @@ button.sm{height:32px;font-size:12px;padding:0 12px}
 <div id="toast"></div>
 
 <script>
-/* ========== State ========== */
-let token = sessionStorage.getItem("adminToken") || "";
-let tenants = [];
-let selectedCode = "";
-let tenantDetail = null;
-let activeTab = "overview";
-document.getElementById("token").value = token;
+/* State */
+let token=sessionStorage.getItem("adminToken")||"";
+let tenants=[];
+let selectedCode="";
+let tenantDetail=null;
+let activeTab="overview";
+document.getElementById("token").value=token;
 
-/* ========== Utils ========== */
+/* Utils */
 function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 function toast(msg,type="info"){
-  const el=document.createElement("div");
-  el.className="toast-item "+type;
-  el.textContent=msg;
-  document.getElementById("toast").appendChild(el);
-  setTimeout(()=>el.remove(),3100);
+  const el=document.createElement("div");el.className="toast-item "+type;el.textContent=msg;
+  document.getElementById("toast").appendChild(el);setTimeout(()=>el.remove(),3100);
 }
 async function api(path,opts={}){
-  const h=Object.assign({},opts.headers||{});
-  if(token)h["X-Admin-Token"]=token;
+  const h=Object.assign({},opts.headers||{});if(token)h["X-Admin-Token"]=token;
   const res=await fetch(path,Object.assign({},opts,{headers:h}));
-  const txt=await res.text();
-  let body={};
+  const txt=await res.text();let body={};
   try{body=txt?JSON.parse(txt):{}}catch{body={detail:txt}}
-  if(!res.ok)throw new Error(body.detail||txt||res.status);
-  return body;
+  if(!res.ok)throw new Error(body.detail||txt||res.status);return body;
 }
 
-/* ========== Tenants ========== */
+/* Tenants */
 async function loadTenants(){
-  try{
-    const data=await api("/admin/api/tenants");
-    tenants=data.tenants||[];
-    renderTenantList();
+  try{const data=await api("/admin/api/tenants");tenants=data.tenants||[];renderTenantList();
     if(!selectedCode&&tenants[0])selectTenant(tenants[0].client_code);
     else if(selectedCode)selectTenant(selectedCode);
   }catch(e){toast(e.message,"error")}
@@ -359,7 +404,7 @@ function renderTenantList(){
   const list=document.getElementById("tenantList");
   const q=(document.getElementById("searchTenant").value||"").toLowerCase();
   const filtered=tenants.filter(t=>(t.brand_name+t.client_code).toLowerCase().includes(q));
-  if(!filtered.length){list.innerHTML='<div class="empty-state"><p>Tidak ada tenant ditemukan</p></div>';return}
+  if(!filtered.length){list.innerHTML='<div style="padding:20px;text-align:center;color:var(--muted);font-size:12px">Tidak ada tenant</div>';return}
   list.innerHTML=filtered.map(t=>`
     <button class="tenant-item ${t.client_code===selectedCode?"selected":""}" data-code="${esc(t.client_code)}">
       <div class="t-row"><span class="t-name">${esc(t.brand_name)}</span><span class="badge ${esc(t.status)}">${esc(t.status)}</span></div>
@@ -369,43 +414,46 @@ function renderTenantList(){
 }
 
 async function selectTenant(code){
-  selectedCode=code;
-  renderTenantList();
-  try{
-    tenantDetail=await api(`/admin/api/tenants/${code}/detail`);
-    renderDetail();
-  }catch(e){
-    document.getElementById("mainContent").innerHTML=`<div class="empty-state"><div class="icon">⚠️</div><p>${esc(e.message)}</p></div>`;
-  }
+  selectedCode=code;renderTenantList();
+  document.getElementById("pageTitle").textContent=tenants.find(t=>t.client_code===code)?.brand_name||code;
+  try{tenantDetail=await api(`/admin/api/tenants/${code}/detail`);renderDetail()}
+  catch(e){document.getElementById("mainContent").innerHTML=`<div class="empty-state"><div class="icon">⚠️</div><p>${esc(e.message)}</p></div>`}
 }
 
-/* ========== Detail Render ========== */
+/* Render Detail */
 function renderDetail(){
   if(!tenantDetail)return;
-  const d=tenantDetail;
-  const c=d.configs.client;
-  const ch=d.configs.channel;
-  const ai=d.configs.ai;
-  const pay=d.configs.payment;
-  const ff=d.configs.feature_flags;
-  const s=d.stats;
-  const ak=d.api_keys;
-
+  const d=tenantDetail,c=d.configs.client,ch=d.configs.channel,ai=d.configs.ai,pay=d.configs.payment,ff=d.configs.feature_flags,s=d.stats,ak=d.api_keys;
   const main=document.getElementById("mainContent");
   main.innerHTML=`
-<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
-  <div>
-    <h2 style="font-size:22px;font-weight:800">${esc(c.brand_name||d.client_code)}</h2>
-    <div style="display:flex;gap:8px;align-items:center;margin-top:6px">
-      <span class="badge ${esc(d.status)}">${esc(d.status)}</span>
-      <span style="font-size:12px;color:var(--muted);font-family:monospace">${esc(d.client_code)}</span>
+<!-- Header -->
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px">
+  <div style="display:flex;align-items:center;gap:16px">
+    <div style="width:48px;height:48px;border-radius:14px;background:linear-gradient(135deg,var(--primary),var(--purple));display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:20px">${esc((c.brand_name||"T")[0].toUpperCase())}</div>
+    <div>
+      <h2 style="font-size:20px;font-weight:800">${esc(c.brand_name||d.client_code)}</h2>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:4px">
+        <span class="badge ${esc(d.status)}">${esc(d.status)}</span>
+        <span style="font-size:12px;color:var(--muted)">${esc(d.client_code)}</span>
+      </div>
     </div>
   </div>
   <div style="display:flex;gap:8px">
-    <a href="${esc(d.urls.dashboard)}" target="_blank"><button class="sm primary">Dashboard Tenant →</button></a>
-    <button class="sm danger" onclick="openDeleteModal()">Hapus</button>
+    <a href="${esc(d.urls.dashboard)}" target="_blank" style="text-decoration:none"><button class="primary sm">📊 Dashboard</button></a>
+    <button class="danger sm" onclick="openDeleteModal()">🗑 Hapus</button>
   </div>
 </div>
+
+<!-- Stats -->
+<div class="stats-row">
+  <div class="stat-card"><div class="stat-icon blue">💬</div><div class="stat-info"><div class="stat-value">${s.conversations}</div><div class="stat-label">Conversations</div></div></div>
+  <div class="stat-card"><div class="stat-icon green">👥</div><div class="stat-info"><div class="stat-value">${s.contacts}</div><div class="stat-label">Contacts</div></div></div>
+  <div class="stat-card"><div class="stat-icon purple">📨</div><div class="stat-info"><div class="stat-value">${s.messages}</div><div class="stat-label">Messages</div></div></div>
+  <div class="stat-card"><div class="stat-icon amber">📦</div><div class="stat-info"><div class="stat-value">${s.bookings}</div><div class="stat-label">Bookings</div></div></div>
+  <div class="stat-card"><div class="stat-icon blue">📚</div><div class="stat-info"><div class="stat-value">${s.knowledge_docs}</div><div class="stat-label">Knowledge</div></div></div>
+</div>
+
+<!-- Tabs -->
 <div class="tabs" id="tabs">
   <button class="tab-btn ${activeTab==="overview"?"active":""}" data-tab="overview">Overview</button>
   <button class="tab-btn ${activeTab==="apikeys"?"active":""}" data-tab="apikeys">API Keys</button>
@@ -416,23 +464,14 @@ function renderDetail(){
   <button class="tab-btn ${activeTab==="raw"?"active":""}" data-tab="raw">Raw JSON</button>
 </div>
 
-<!-- Overview -->
+<!-- Overview Tab -->
 <div class="tab-panel ${activeTab==="overview"?"active":""}" id="panel-overview">
-  <div class="stats-row">
-    <div class="stat-card"><div class="stat-value">${s.conversations}</div><div class="stat-label">Conversations</div></div>
-    <div class="stat-card"><div class="stat-value">${s.contacts}</div><div class="stat-label">Contacts</div></div>
-    <div class="stat-card"><div class="stat-value">${s.messages}</div><div class="stat-label">Messages</div></div>
-    <div class="stat-card"><div class="stat-value">${s.bookings}</div><div class="stat-label">Bookings</div></div>
-    <div class="stat-card"><div class="stat-value">${s.knowledge_docs}</div><div class="stat-label">Knowledge Docs</div></div>
-  </div>
   <div class="card">
     <div class="card-header"><h3>Informasi Tenant</h3></div>
     <div class="form-grid">
       <div class="form-group"><div class="form-label">Brand Name</div><input id="oBrandName" value="${esc(c.brand_name||"")}"></div>
       <div class="form-group"><div class="form-label">Bot Name</div><input id="oBotName" value="${esc(c.bot_name||"")}"></div>
-      <div class="form-group"><div class="form-label">Status</div>
-        <select id="oStatus"><option value="active" ${d.status==="active"?"selected":""}>Active</option><option value="inactive" ${d.status==="inactive"?"selected":""}>Inactive</option></select>
-      </div>
+      <div class="form-group"><div class="form-label">Status</div><select id="oStatus"><option value="active" ${d.status==="active"?"selected":""}>Active</option><option value="inactive" ${d.status==="inactive"?"selected":""}>Inactive</option></select></div>
       <div class="form-group"><div class="form-label">Admin Phone</div><input id="oAdminPhone" value="${esc(c.admin_notification_phone||c.admin_group_id||"")}"></div>
       <div class="form-group"><div class="form-label">Default User Call</div><input id="oUserCall" value="${esc(c.default_user_call||"")}"></div>
       <div class="form-group"><div class="form-label">Tone</div><input id="oTone" value="${esc(c.tone||"")}"></div>
@@ -440,51 +479,51 @@ function renderDetail(){
       <div class="form-group"><div class="form-label">Language</div><input id="oLang" value="${esc(c.default_language||"id")}"></div>
     </div>
     <div class="form-actions">
-      <button class="primary" onclick="saveOverview()">Simpan</button>
-      <button class="${d.status==="active"?"danger":"success"}" onclick="toggleStatus()">${d.status==="active"?"Nonaktifkan":"Aktifkan"}</button>
+      <button class="primary" onclick="saveOverview()">💾 Simpan Perubahan</button>
+      <button class="${d.status==="active"?"danger":"success"}" onclick="toggleStatus()">${d.status==="active"?"⏸ Nonaktifkan":"▶ Aktifkan"}</button>
     </div>
   </div>
   <div class="card">
-    <div class="card-header"><h3>Webhook URLs</h3></div>
-    <div style="display:grid;gap:10px">
-      <div><div class="form-label" style="margin-bottom:4px">StarSendr Webhook</div><div class="url-display">${esc(location.origin+d.urls.webhook_starsender)}</div></div>
-      <div><div class="form-label" style="margin-bottom:4px">WABA Webhook</div><div class="url-display">${esc(location.origin+d.urls.webhook_waba)}</div></div>
+    <div class="card-header"><h3>Webhook URLs</h3><span class="subtitle">Gunakan URL berikut untuk webhook</span></div>
+    <div style="display:grid;gap:12px">
+      <div><div class="form-label" style="margin-bottom:6px">StarSendr Webhook</div><div class="url-display">${esc(location.origin+d.urls.webhook_starsender)}</div></div>
+      <div><div class="form-label" style="margin-bottom:6px">WABA Webhook</div><div class="url-display">${esc(location.origin+d.urls.webhook_waba)}</div></div>
     </div>
   </div>
 </div>
 
-<!-- API Keys -->
+<!-- API Keys Tab -->
 <div class="tab-panel ${activeTab==="apikeys"?"active":""}" id="panel-apikeys">
   <div class="card">
-    <div class="card-header"><h3>API Keys</h3><span style="font-size:11px;color:var(--muted)">Keys disimpan terenkripsi per-tenant</span></div>
+    <div class="card-header"><h3>🔑 API Keys</h3><span class="subtitle">Keys disimpan terenkripsi per-tenant</span></div>
     ${Object.entries(ak).map(([k,v])=>`
     <div class="key-row">
       <div class="key-info">
-        <div class="key-name">${esc(k.replace(/_/g," ").replace(/\\b\\w/g,c=>c.toUpperCase()))}</div>
-        <div class="key-source ${v.is_set?"set":"not-set"}">${v.is_set?`✓ Set (${esc(v.source)}) · ${esc(v.masked_value)}`:"✗ Belum diset"}</div>
+        <div class="key-name">${esc(k.replace(/_/g," ").toUpperCase())}</div>
+        <div class="key-source ${v.is_set?"set":"not-set"}">${v.is_set?`✅ Set (${esc(v.source)}) · ${esc(v.masked_value)}`:"❌ Belum diset"}</div>
       </div>
       <div class="key-input-wrap">
-        <input type="password" id="key_${esc(k)}" placeholder="Masukkan ${esc(k)}">
+        <input type="password" id="key_${esc(k)}" placeholder="Masukkan key baru...">
         <button class="sm ghost" onclick="toggleKeyVis('key_${esc(k)}')">👁</button>
       </div>
     </div>`).join("")}
-    <div class="form-actions"><button class="primary" onclick="saveApiKeys()">Simpan API Keys</button></div>
+    <div class="form-actions"><button class="primary" onclick="saveApiKeys()">💾 Simpan API Keys</button></div>
   </div>
 </div>
 
-<!-- Channel -->
+<!-- Channel Tab -->
 <div class="tab-panel ${activeTab==="channel"?"active":""}" id="panel-channel">
   <div class="card">
-    <div class="card-header"><h3>Channel Config</h3></div>
-    <div class="form-grid">
+    <div class="card-header"><h3>📡 Channel Config</h3></div>
+    <div class="form-grid" style="margin-bottom:16px">
       <div class="form-group"><div class="form-label">Active Channel</div>
         <select id="chActive">${["starsender","waba","telegram"].map(c2=>`<option value="${c2}" ${ch.active_channel===c2?"selected":""}>${c2}</option>`).join("")}</select>
       </div>
     </div>
     ${Object.entries(ch.channels||{}).map(([chName,chConf])=>`
-    <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--line)">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-        <span style="font-weight:700;text-transform:capitalize">${esc(chName)}</span>
+    <div style="margin-top:16px;padding-top:16px;border-top:2px solid var(--border-light)">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <span style="font-weight:700;font-size:14px;text-transform:capitalize">${esc(chName)}</span>
         <div class="toggle ${chConf.enabled?"on":""}" data-channel="${esc(chName)}" onclick="toggleChannel(this)"></div>
       </div>
       <div class="form-grid">
@@ -492,82 +531,80 @@ function renderDetail(){
         <div class="form-group"><div class="form-label">${esc(k2)}</div><input class="ch-field" data-channel="${esc(chName)}" data-key="${esc(k2)}" value="${esc(v2)}"></div>`).join("")}
       </div>
     </div>`).join("")}
-    <div class="form-actions"><button class="primary" onclick="saveChannel()">Simpan Channel</button></div>
+    <div class="form-actions"><button class="primary" onclick="saveChannel()">💾 Simpan Channel</button></div>
   </div>
 </div>
 
-<!-- AI Config -->
+<!-- AI Tab -->
 <div class="tab-panel ${activeTab==="ai"?"active":""}" id="panel-ai">
   <div class="card">
-    <div class="card-header"><h3>AI Config</h3></div>
+    <div class="card-header"><h3>🤖 AI Config</h3></div>
     <div class="form-grid">
       <div class="form-group"><div class="form-label">Provider</div><input id="aiProvider" value="${esc(ai.provider||"gemini")}"></div>
       <div class="form-group"><div class="form-label">Chat Model</div><input id="aiChatModel" value="${esc(ai.chat_model||"")}"></div>
       <div class="form-group"><div class="form-label">Temperature</div><input id="aiTemp" type="number" step="0.05" value="${ai.temperature??0.25}"></div>
       <div class="form-group"><div class="form-label">Max Output Tokens</div><input id="aiMaxTokens" type="number" value="${ai.max_output_tokens??650}"></div>
-      <div class="form-group"><div class="form-label">Timeout (seconds)</div><input id="aiTimeout" type="number" value="${ai.timeout_seconds??25}"></div>
+      <div class="form-group"><div class="form-label">Timeout (s)</div><input id="aiTimeout" type="number" value="${ai.timeout_seconds??25}"></div>
       <div class="form-group"><div class="form-label">Thinking Budget</div><input id="aiThinking" type="number" value="${ai.thinking_budget??0}"></div>
       <div class="form-group"><div class="form-label">Embedding Model</div><input id="aiEmbModel" value="${esc(ai.embedding_model||"")}"></div>
-      <div class="form-group"><div class="form-label">Embedding Dimensions</div><input id="aiEmbDim" type="number" value="${ai.embedding_dimensions??1536}"></div>
+      <div class="form-group"><div class="form-label">Embedding Dim</div><input id="aiEmbDim" type="number" value="${ai.embedding_dimensions??1536}"></div>
     </div>
   </div>
   <div class="card">
-    <div class="card-header"><h3>Safety Thresholds</h3></div>
+    <div class="card-header"><h3>🛡 Safety</h3></div>
     <div class="form-grid">
       <div class="form-group"><div class="form-label">Intent Confidence Min</div><input id="aiIntentMin" type="number" step="0.01" value="${(ai.safety||{}).intent_confidence_min??0.70}"></div>
       <div class="form-group"><div class="form-label">Retrieval Score Min</div><input id="aiRetrMin" type="number" step="0.01" value="${(ai.safety||{}).retrieval_score_min??0.55}"></div>
-      <div class="form-group"><div class="form-label">Retrieval Score Confident</div><input id="aiRetrConf" type="number" step="0.01" value="${(ai.safety||{}).retrieval_score_confident??0.75}"></div>
+      <div class="form-group"><div class="form-label">Retrieval Confident</div><input id="aiRetrConf" type="number" step="0.01" value="${(ai.safety||{}).retrieval_score_confident??0.75}"></div>
     </div>
   </div>
   <div class="card">
-    <div class="card-header"><h3>Token Optimization</h3></div>
+    <div class="card-header"><h3>⚡ Token Optimization</h3></div>
     <div class="form-grid">
       <div class="form-group"><div class="form-label">RAG Top K</div><input id="aiRagK" type="number" value="${(ai.token_optimization||{}).rag_top_k??3}"></div>
       <div class="form-group"><div class="form-label">Max Chunk Tokens</div><input id="aiChunkTok" type="number" value="${(ai.token_optimization||{}).max_chunk_tokens??500}"></div>
-      <div class="form-group"><div class="form-label">Cache TTL (minutes)</div><input id="aiCacheTTL" type="number" value="${(ai.token_optimization||{}).response_cache_ttl_minutes??60}"></div>
+      <div class="form-group"><div class="form-label">Cache TTL (min)</div><input id="aiCacheTTL" type="number" value="${(ai.token_optimization||{}).response_cache_ttl_minutes??60}"></div>
     </div>
   </div>
-  <div class="form-actions"><button class="primary" onclick="saveAI()">Simpan AI Config</button></div>
+  <div class="form-actions"><button class="primary" onclick="saveAI()">💾 Simpan AI Config</button></div>
 </div>
 
-<!-- Payment -->
+<!-- Payment Tab -->
 <div class="tab-panel ${activeTab==="payment"?"active":""}" id="panel-payment">
   <div class="card">
-    <div class="card-header"><h3>Payment Config</h3></div>
+    <div class="card-header"><h3>💳 Payment Config</h3></div>
     <div class="form-grid">
       <div class="form-group full"><div class="form-label">Payment Instruction</div><textarea id="payInstruction" rows="3">${esc(pay.payment_instruction||"")}</textarea></div>
       <div class="form-group full"><div class="form-label">Verification Message</div><textarea id="payVerification" rows="3">${esc(pay.verification_message||"")}</textarea></div>
     </div>
   </div>
   <div class="card">
-    <div class="card-header"><h3>Bank Accounts</h3></div>
-    ${(pay.bank_accounts||[]).length?pay.bank_accounts.map((b,i)=>`
-    <div style="padding:10px 0;border-bottom:1px solid var(--line)">
-      <strong>${esc(b.bank_name)}</strong> — ${esc(b.account_number)} (${esc(b.account_holder)})
-      <span class="badge ${b.is_active?"active":"inactive"}" style="margin-left:8px">${b.is_active?"Active":"Inactive"}</span>
-    </div>`).join(""):'<p style="color:var(--muted)">Belum ada bank account.</p>'}
+    <div class="card-header"><h3>🏦 Bank Accounts</h3></div>
+    ${(pay.bank_accounts||[]).length?`<table><thead><tr><th>Bank</th><th>Nomor</th><th>Atas Nama</th><th>Status</th></tr></thead><tbody>
+    ${pay.bank_accounts.map(b=>`<tr><td style="font-weight:600">${esc(b.bank_name)}</td><td>${esc(b.account_number)}</td><td>${esc(b.account_holder)}</td><td><span class="badge ${b.is_active?"active":"inactive"}">${b.is_active?"Active":"Inactive"}</span></td></tr>`).join("")}
+    </tbody></table>`:'<p style="color:var(--muted);text-align:center;padding:20px">Belum ada bank account</p>'}
   </div>
-  <div class="form-actions"><button class="primary" onclick="savePayment()">Simpan Payment</button></div>
+  <div class="form-actions"><button class="primary" onclick="savePayment()">💾 Simpan Payment</button></div>
 </div>
 
-<!-- Feature Flags -->
+<!-- Flags Tab -->
 <div class="tab-panel ${activeTab==="flags"?"active":""}" id="panel-flags">
   <div class="card">
-    <div class="card-header"><h3>Feature Flags</h3></div>
+    <div class="card-header"><h3>🚩 Feature Flags</h3><span class="subtitle">Toggle fitur on/off per tenant</span></div>
     ${Object.entries(ff).map(([k,v])=>`
     <div class="toggle-row">
-      <span class="toggle-label">${esc(k.replace(/_/g," ").replace(/\\b\\w/g,c=>c.toUpperCase()))}</span>
+      <span class="toggle-label">${esc(k.replace(/_/g," "))}</span>
       <div class="toggle ${v?"on":""}" data-flag="${esc(k)}" onclick="toggleFlag(this)"></div>
     </div>`).join("")}
-    <div class="form-actions"><button class="primary" onclick="saveFlags()">Simpan Flags</button></div>
+    <div class="form-actions"><button class="primary" onclick="saveFlags()">💾 Simpan Flags</button></div>
   </div>
 </div>
 
-<!-- Raw JSON -->
+<!-- Raw Tab -->
 <div class="tab-panel ${activeTab==="raw"?"active":""}" id="panel-raw">
   <div class="card">
-    <div class="card-header"><h3>Raw JSON Config</h3>
-      <select id="rawSection" onchange="loadRawSection()">
+    <div class="card-header"><h3>📝 Raw JSON</h3>
+      <select id="rawSection" onchange="loadRawSection()" style="width:180px">
         <option value="client">client_config</option>
         <option value="channel">channel_config</option>
         <option value="ai">ai_config</option>
@@ -576,11 +613,9 @@ function renderDetail(){
       </select>
     </div>
     <textarea class="json-editor" id="rawEditor"></textarea>
-    <div class="form-actions"><button class="primary" onclick="saveRaw()">Simpan Raw JSON</button></div>
+    <div class="form-actions"><button class="primary" onclick="saveRaw()">💾 Simpan</button></div>
   </div>
 </div>`;
-
-  // Tab switching
   main.querySelectorAll(".tab-btn").forEach(btn=>btn.addEventListener("click",()=>{
     activeTab=btn.dataset.tab;
     main.querySelectorAll(".tab-btn").forEach(b=>b.classList.toggle("active",b.dataset.tab===activeTab));
@@ -589,214 +624,68 @@ function renderDetail(){
   loadRawSection();
 }
 
-/* ========== Actions ========== */
+/* Actions */
 function toggleKeyVis(id){const el=document.getElementById(id);el.type=el.type==="password"?"text":"password"}
-
 async function saveOverview(){
-  try{
-    await api(`/admin/api/tenants/${selectedCode}/config/client`,{
-      method:"PUT",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({config:{
-        brand_name:document.getElementById("oBrandName").value.trim(),
-        bot_name:document.getElementById("oBotName").value.trim(),
-        status:document.getElementById("oStatus").value,
-        admin_notification_phone:document.getElementById("oAdminPhone").value.trim(),
-        default_user_call:document.getElementById("oUserCall").value.trim(),
-        tone:document.getElementById("oTone").value.trim(),
-        timezone:document.getElementById("oTimezone").value.trim(),
-        default_language:document.getElementById("oLang").value.trim(),
-      }})
-    });
-    toast("Overview disimpan","success");
-    await loadTenants();
-    await selectTenant(selectedCode);
-  }catch(e){toast(e.message,"error")}
+  try{await api(`/admin/api/tenants/${selectedCode}/config/client`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({config:{brand_name:document.getElementById("oBrandName").value.trim(),bot_name:document.getElementById("oBotName").value.trim(),status:document.getElementById("oStatus").value,admin_notification_phone:document.getElementById("oAdminPhone").value.trim(),default_user_call:document.getElementById("oUserCall").value.trim(),tone:document.getElementById("oTone").value.trim(),timezone:document.getElementById("oTimezone").value.trim(),default_language:document.getElementById("oLang").value.trim()}})});toast("Tersimpan!","success");await loadTenants();await selectTenant(selectedCode)}catch(e){toast(e.message,"error")}
 }
-
 async function toggleStatus(){
-  if(!selectedCode)return;
-  const action=tenantDetail.status==="active"?"disable":"enable";
-  try{
-    await api(`/admin/api/tenants/${selectedCode}/${action}`,{method:"POST"});
-    toast(`Tenant ${action==="enable"?"diaktifkan":"dinonaktifkan"}`,"success");
-    await loadTenants();
-    await selectTenant(selectedCode);
-  }catch(e){toast(e.message,"error")}
+  if(!selectedCode)return;const action=tenantDetail.status==="active"?"disable":"enable";
+  try{await api(`/admin/api/tenants/${selectedCode}/${action}`,{method:"POST"});toast("Status diubah","success");await loadTenants();await selectTenant(selectedCode)}catch(e){toast(e.message,"error")}
 }
-
 async function saveApiKeys(){
-  const keys={};
-  document.querySelectorAll("[id^='key_']").forEach(el=>{
-    const k=el.id.replace("key_","");
-    if(el.value.trim())keys[k]=el.value.trim();
-  });
+  const keys={};document.querySelectorAll("[id^='key_']").forEach(el=>{const k=el.id.replace("key_","");if(el.value.trim())keys[k]=el.value.trim()});
   if(!Object.keys(keys).length){toast("Tidak ada key yang diisi","error");return}
-  try{
-    await api(`/admin/api/tenants/${selectedCode}/api-keys`,{
-      method:"PUT",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({keys})
-    });
-    toast("API Keys disimpan","success");
-    document.querySelectorAll("[id^='key_']").forEach(el=>el.value="");
-    await selectTenant(selectedCode);
-  }catch(e){toast(e.message,"error")}
+  try{await api(`/admin/api/tenants/${selectedCode}/api-keys`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({keys})});toast("API Keys disimpan","success");document.querySelectorAll("[id^='key_']").forEach(el=>el.value="");await selectTenant(selectedCode)}catch(e){toast(e.message,"error")}
 }
-
 function toggleChannel(el){el.classList.toggle("on")}
 function toggleFlag(el){el.classList.toggle("on")}
-
 async function saveChannel(){
-  const channels={};
-  document.querySelectorAll(".toggle[data-channel]").forEach(el=>{
-    const ch=el.dataset.channel;
-    channels[ch]=channels[ch]||{};
-    channels[ch].enabled=el.classList.contains("on");
-  });
-  document.querySelectorAll(".ch-field").forEach(el=>{
-    const ch=el.dataset.channel;
-    channels[ch]=channels[ch]||{};
-    channels[ch][el.dataset.key]=el.value.trim();
-  });
-  try{
-    await api(`/admin/api/tenants/${selectedCode}/config/channel`,{
-      method:"PUT",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({config:{active_channel:document.getElementById("chActive").value,channels}})
-    });
-    toast("Channel config disimpan","success");
-    await loadTenants();
-    await selectTenant(selectedCode);
-  }catch(e){toast(e.message,"error")}
+  const channels={};document.querySelectorAll(".toggle[data-channel]").forEach(el=>{const ch=el.dataset.channel;channels[ch]=channels[ch]||{};channels[ch].enabled=el.classList.contains("on")});
+  document.querySelectorAll(".ch-field").forEach(el=>{const ch=el.dataset.channel;channels[ch]=channels[ch]||{};channels[ch][el.dataset.key]=el.value.trim()});
+  try{await api(`/admin/api/tenants/${selectedCode}/config/channel`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({config:{active_channel:document.getElementById("chActive").value,channels}})});toast("Channel disimpan","success");await loadTenants();await selectTenant(selectedCode)}catch(e){toast(e.message,"error")}
 }
-
 async function saveAI(){
-  try{
-    await api(`/admin/api/tenants/${selectedCode}/config/ai`,{
-      method:"PUT",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({config:{
-        provider:document.getElementById("aiProvider").value.trim(),
-        chat_model:document.getElementById("aiChatModel").value.trim(),
-        temperature:parseFloat(document.getElementById("aiTemp").value)||0.25,
-        max_output_tokens:parseInt(document.getElementById("aiMaxTokens").value)||650,
-        timeout_seconds:parseInt(document.getElementById("aiTimeout").value)||25,
-        thinking_budget:parseInt(document.getElementById("aiThinking").value)||0,
-        embedding_model:document.getElementById("aiEmbModel").value.trim(),
-        embedding_dimensions:parseInt(document.getElementById("aiEmbDim").value)||1536,
-        safety:{
-          intent_confidence_min:parseFloat(document.getElementById("aiIntentMin").value)||0.70,
-          retrieval_score_min:parseFloat(document.getElementById("aiRetrMin").value)||0.55,
-          retrieval_score_confident:parseFloat(document.getElementById("aiRetrConf").value)||0.75,
-        },
-        token_optimization:{
-          rag_top_k:parseInt(document.getElementById("aiRagK").value)||3,
-          max_chunk_tokens:parseInt(document.getElementById("aiChunkTok").value)||500,
-          response_cache_ttl_minutes:parseInt(document.getElementById("aiCacheTTL").value)||60,
-        }
-      }})
-    });
-    toast("AI config disimpan","success");
-    await selectTenant(selectedCode);
-  }catch(e){toast(e.message,"error")}
+  try{await api(`/admin/api/tenants/${selectedCode}/config/ai`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({config:{provider:document.getElementById("aiProvider").value.trim(),chat_model:document.getElementById("aiChatModel").value.trim(),temperature:parseFloat(document.getElementById("aiTemp").value)||0.25,max_output_tokens:parseInt(document.getElementById("aiMaxTokens").value)||650,timeout_seconds:parseInt(document.getElementById("aiTimeout").value)||25,thinking_budget:parseInt(document.getElementById("aiThinking").value)||0,embedding_model:document.getElementById("aiEmbModel").value.trim(),embedding_dimensions:parseInt(document.getElementById("aiEmbDim").value)||1536,safety:{intent_confidence_min:parseFloat(document.getElementById("aiIntentMin").value)||0.70,retrieval_score_min:parseFloat(document.getElementById("aiRetrMin").value)||0.55,retrieval_score_confident:parseFloat(document.getElementById("aiRetrConf").value)||0.75},token_optimization:{rag_top_k:parseInt(document.getElementById("aiRagK").value)||3,max_chunk_tokens:parseInt(document.getElementById("aiChunkTok").value)||500,response_cache_ttl_minutes:parseInt(document.getElementById("aiCacheTTL").value)||60}}})});toast("AI config disimpan","success");await selectTenant(selectedCode)}catch(e){toast(e.message,"error")}
 }
-
 async function savePayment(){
-  try{
-    await api(`/admin/api/tenants/${selectedCode}/config/payment`,{
-      method:"PUT",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({config:{
-        payment_instruction:document.getElementById("payInstruction").value.trim(),
-        verification_message:document.getElementById("payVerification").value.trim(),
-      }})
-    });
-    toast("Payment config disimpan","success");
-    await selectTenant(selectedCode);
-  }catch(e){toast(e.message,"error")}
+  try{await api(`/admin/api/tenants/${selectedCode}/config/payment`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({config:{payment_instruction:document.getElementById("payInstruction").value.trim(),verification_message:document.getElementById("payVerification").value.trim()}})});toast("Payment disimpan","success");await selectTenant(selectedCode)}catch(e){toast(e.message,"error")}
 }
-
 async function saveFlags(){
-  const flags={};
-  document.querySelectorAll(".toggle[data-flag]").forEach(el=>{flags[el.dataset.flag]=el.classList.contains("on")});
-  try{
-    await api(`/admin/api/tenants/${selectedCode}/config/feature_flags`,{
-      method:"PUT",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({config:flags})
-    });
-    toast("Feature flags disimpan","success");
-    await selectTenant(selectedCode);
-  }catch(e){toast(e.message,"error")}
+  const flags={};document.querySelectorAll(".toggle[data-flag]").forEach(el=>{flags[el.dataset.flag]=el.classList.contains("on")});
+  try{await api(`/admin/api/tenants/${selectedCode}/config/feature_flags`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({config:flags})});toast("Flags disimpan","success");await selectTenant(selectedCode)}catch(e){toast(e.message,"error")}
 }
-
-function loadRawSection(){
-  const section=document.getElementById("rawSection").value;
-  const data=tenantDetail?.configs?.[section]||{};
-  document.getElementById("rawEditor").value=JSON.stringify(data,null,2);
-}
+function loadRawSection(){const s=document.getElementById("rawSection").value;document.getElementById("rawEditor").value=JSON.stringify(tenantDetail?.configs?.[s]||{},null,2)}
 async function saveRaw(){
-  const section=document.getElementById("rawSection").value;
-  let config;
+  const section=document.getElementById("rawSection").value;let config;
   try{config=JSON.parse(document.getElementById("rawEditor").value)}catch{toast("JSON tidak valid","error");return}
-  try{
-    await api(`/admin/api/tenants/${selectedCode}/config/${section}`,{
-      method:"PUT",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({config})
-    });
-    toast(`${section} disimpan`,"success");
-    await selectTenant(selectedCode);
-  }catch(e){toast(e.message,"error")}
+  try{await api(`/admin/api/tenants/${selectedCode}/config/${section}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({config})});toast("Tersimpan","success");await selectTenant(selectedCode)}catch(e){toast(e.message,"error")}
 }
 
-/* ========== Create Tenant ========== */
+/* Modals */
 document.getElementById("openAddModal").addEventListener("click",()=>document.getElementById("addModal").classList.add("show"));
 document.getElementById("closeAddModal").addEventListener("click",()=>document.getElementById("addModal").classList.remove("show"));
 document.getElementById("addModal").addEventListener("click",e=>{if(e.target===e.currentTarget)e.currentTarget.classList.remove("show")});
 document.getElementById("createTenantBtn").addEventListener("click",async()=>{
-  const payload={
-    client_code:document.getElementById("newClientCode").value.trim(),
-    brand_name:document.getElementById("newBrandName").value.trim(),
-    bot_name:document.getElementById("newBotName").value.trim()||"Admin AI",
-    admin_phone:document.getElementById("newAdminPhone").value.trim(),
-  };
-  if(!payload.client_code||!payload.brand_name){toast("Client code dan brand name wajib diisi","error");return}
-  try{
-    const data=await api("/admin/api/tenants",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
-    selectedCode=data.client_code;
-    document.getElementById("addModal").classList.remove("show");
-    toast("Tenant berhasil dibuat","success");
-    await loadTenants();
-  }catch(e){toast(e.message,"error")}
+  const p={client_code:document.getElementById("newClientCode").value.trim(),brand_name:document.getElementById("newBrandName").value.trim(),bot_name:document.getElementById("newBotName").value.trim()||"Admin AI",admin_phone:document.getElementById("newAdminPhone").value.trim()};
+  if(!p.client_code||!p.brand_name){toast("Client code dan brand name wajib","error");return}
+  try{const d=await api("/admin/api/tenants",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(p)});selectedCode=d.client_code;document.getElementById("addModal").classList.remove("show");toast("Tenant dibuat!","success");await loadTenants()}catch(e){toast(e.message,"error")}
 });
-
-/* ========== Delete Tenant ========== */
-function openDeleteModal(){
-  document.getElementById("deleteTargetName").textContent=`${tenantDetail?.configs?.client?.brand_name||selectedCode} (${selectedCode})`;
-  document.getElementById("deleteModal").classList.add("show");
-}
+function openDeleteModal(){document.getElementById("deleteTargetName").textContent=`${tenantDetail?.configs?.client?.brand_name||selectedCode} (${selectedCode})`;document.getElementById("deleteModal").classList.add("show")}
 document.getElementById("closeDeleteModal").addEventListener("click",()=>document.getElementById("deleteModal").classList.remove("show"));
 document.getElementById("deleteModal").addEventListener("click",e=>{if(e.target===e.currentTarget)e.currentTarget.classList.remove("show")});
 document.getElementById("confirmDeleteBtn").addEventListener("click",async()=>{
-  try{
-    await api(`/admin/api/tenants/${selectedCode}`,{method:"DELETE"});
-    document.getElementById("deleteModal").classList.remove("show");
-    toast("Tenant dihapus","success");
-    selectedCode="";
-    tenantDetail=null;
-    document.getElementById("mainContent").innerHTML='<div class="empty-state"><div class="icon">📋</div><p>Pilih tenant dari sidebar untuk melihat detail</p></div>';
-    await loadTenants();
-  }catch(e){toast(e.message,"error")}
+  try{await api(`/admin/api/tenants/${selectedCode}`,{method:"DELETE"});document.getElementById("deleteModal").classList.remove("show");toast("Tenant dihapus","success");selectedCode="";tenantDetail=null;document.getElementById("mainContent").innerHTML='<div class="empty-state"><div class="icon">📋</div><p>Pilih tenant</p></div>';await loadTenants()}catch(e){toast(e.message,"error")}
 });
 
-/* ========== Init ========== */
+/* Init */
 document.getElementById("searchTenant").addEventListener("input",renderTenantList);
-document.getElementById("saveToken").addEventListener("click",()=>{
-  token=document.getElementById("token").value.trim();
-  sessionStorage.setItem("adminToken",token);
-  loadTenants();
-});
+document.getElementById("saveToken").addEventListener("click",()=>{token=document.getElementById("token").value.trim();sessionStorage.setItem("adminToken",token);loadTenants()});
 document.getElementById("refresh").addEventListener("click",loadTenants);
 if(token)loadTenants();
 </script>
 </body>
 </html>"""
-
 @app.get("/channels/{channel}/health", status_code=status.HTTP_200_OK)
 async def channel_health(channel: str, client_code: str = "travel_alfalah"):
     adapter = _adapter_for_channel(channel, client_code)

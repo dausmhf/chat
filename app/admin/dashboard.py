@@ -547,277 +547,374 @@ def _dashboard_html(client_code: str) -> str:
     return f"""<!doctype html>
 <html lang="id">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>HalloTravel Admin</title>
-  <style>
-    :root {{
-      color-scheme: light;
-      --bg: #f6f7f9;
-      --panel: #ffffff;
-      --line: #d9dee7;
-      --text: #17202a;
-      --muted: #617082;
-      --green: #177245;
-      --red: #b3261e;
-      --blue: #2458a7;
-      --amber: #946200;
-    }}
-    * {{ box-sizing: border-box; }}
-    body {{ margin: 0; font-family: Arial, Helvetica, sans-serif; background: var(--bg); color: var(--text); }}
-    header {{ height: 56px; display: flex; align-items: center; justify-content: space-between; padding: 0 18px; border-bottom: 1px solid var(--line); background: var(--panel); }}
-    h1 {{ font-size: 18px; margin: 0; letter-spacing: 0; }}
-    button {{ border: 1px solid var(--line); background: #fff; color: var(--text); height: 34px; padding: 0 12px; border-radius: 6px; cursor: pointer; font-weight: 600; }}
-    button.primary {{ background: var(--green); color: #fff; border-color: var(--green); }}
-    button.danger {{ background: var(--red); color: #fff; border-color: var(--red); }}
-    button:disabled {{ opacity: .5; cursor: not-allowed; }}
-    input, select {{ height: 34px; border: 1px solid var(--line); border-radius: 6px; padding: 0 10px; min-width: 180px; background: #fff; }}
-    input[type=file] {{ padding: 6px 10px; }}
-    textarea {{ width: 100%; min-height: 92px; border: 1px solid var(--line); border-radius: 6px; padding: 10px; resize: vertical; font: inherit; }}
-    .layout {{ display: grid; grid-template-columns: 380px 1fr; height: calc(100vh - 56px); }}
-    .sidebar {{ border-right: 1px solid var(--line); background: var(--panel); overflow: auto; }}
-    .content {{ min-width: 0; display: grid; grid-template-rows: auto 1fr auto; overflow: hidden; }}
-    .toolbar {{ display: flex; gap: 8px; align-items: center; padding: 12px; border-bottom: 1px solid var(--line); background: var(--panel); }}
-    .list-item {{ width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; height: auto; padding: 12px; display: block; font-weight: 400; }}
-    .list-item.active {{ background: #eef4ff; }}
-    .row {{ display: flex; align-items: center; justify-content: space-between; gap: 8px; }}
-    .name {{ font-weight: 700; overflow-wrap: anywhere; }}
-    .phone, .preview, .time {{ color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }}
-    .preview {{ margin-top: 6px; line-height: 1.35; }}
-    .badge {{ display: inline-flex; align-items: center; min-height: 22px; padding: 0 8px; border-radius: 999px; font-size: 12px; font-weight: 700; border: 1px solid var(--line); background: #fff; white-space: nowrap; }}
-    .badge.on {{ color: var(--green); border-color: #9fd3b8; background: #eefaf3; }}
-    .badge.off {{ color: var(--red); border-color: #ebb0ac; background: #fff1f0; }}
-    .badge.warn {{ color: var(--amber); border-color: #e5c985; background: #fff8df; }}
-    .messages {{ padding: 14px; overflow: auto; }}
-    .bubble {{ max-width: 760px; margin: 0 0 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: #fff; white-space: pre-wrap; line-height: 1.4; overflow-wrap: anywhere; }}
-    .bubble.incoming {{ margin-right: auto; }}
-    .bubble.outgoing {{ margin-left: auto; background: #eefaf3; border-color: #b7dec7; }}
-    .meta {{ color: var(--muted); font-size: 12px; margin-bottom: 5px; display: flex; justify-content: space-between; gap: 10px; }}
-    .bottom {{ border-top: 1px solid var(--line); background: var(--panel); padding: 10px 12px; max-height: 320px; overflow: auto; }}
-    .stack {{ display: grid; gap: 8px; }}
-    .knowledge-grid {{ display: grid; grid-template-columns: 1fr 150px 150px auto; gap: 8px; align-items: start; margin: 10px 0; }}
-    table {{ width: 100%; border-collapse: collapse; font-size: 12px; }}
-    th, td {{ text-align: left; border-bottom: 1px solid var(--line); padding: 7px; vertical-align: top; }}
-    .empty {{ color: var(--muted); padding: 18px; }}
-    @media (max-width: 860px) {{
-      .layout {{ grid-template-columns: 1fr; grid-template-rows: 42vh 1fr; }}
-      .sidebar {{ border-right: 0; border-bottom: 1px solid var(--line); }}
-      input {{ min-width: 160px; width: 100%; }}
-      .toolbar {{ flex-wrap: wrap; }}
-      .knowledge-grid {{ grid-template-columns: 1fr; }}
-    }}
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HalloTravel · {client_code}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{{box-sizing:border-box;margin:0;padding:0}}
+:root{{
+  --bg:#f0f2f5;--white:#ffffff;
+  --border:#e5e9f0;--border-light:#f0f2f5;
+  --text:#1a1d26;--text2:#5a6178;--muted:#8b92a8;
+  --primary:#2563eb;--primary-light:#3b82f6;--primary-bg:#eff6ff;--primary-border:#bfdbfe;
+  --green:#10b981;--green-bg:#ecfdf5;--green-border:#a7f3d0;
+  --red:#ef4444;--red-bg:#fef2f2;--red-border:#fecaca;
+  --amber:#f59e0b;--amber-bg:#fffbeb;
+  --purple:#8b5cf6;--purple-bg:#f5f3ff;
+  --radius:12px;--radius-lg:16px;
+  --shadow:0 1px 3px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04);
+  --shadow-md:0 4px 12px rgba(0,0,0,.08);
+  --transition:all .2s ease;
+}}
+html{{font-size:14px}}
+body{{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow:hidden}}
+
+/* Toast */
+#toast{{position:fixed;top:20px;right:20px;z-index:9999;display:flex;flex-direction:column;gap:8px}}
+.toast-item{{padding:12px 20px;border-radius:var(--radius);font-size:13px;font-weight:600;color:#fff;box-shadow:var(--shadow-md);animation:toastIn .3s ease,toastOut .4s ease 2.6s forwards}}
+.toast-item.success{{background:var(--green)}}.toast-item.error{{background:var(--red)}}.toast-item.info{{background:var(--primary)}}
+@keyframes toastIn{{from{{opacity:0;transform:translateY(-12px)}}to{{opacity:1;transform:translateY(0)}}}}
+@keyframes toastOut{{from{{opacity:1}}to{{opacity:0}}}}
+
+/* Layout */
+.app{{display:grid;grid-template-columns:220px 360px 1fr;height:100vh}}
+
+/* Sidebar */
+.sidebar{{background:var(--white);border-right:1px solid var(--border);display:flex;flex-direction:column}}
+.sidebar-brand{{padding:20px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border)}}
+.sidebar-brand .logo-icon{{width:32px;height:32px;background:var(--primary);border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:14px}}
+.sidebar-brand h1{{font-size:14px;font-weight:700}}
+.sidebar-nav{{padding:12px;display:flex;flex-direction:column;gap:2px;flex:1}}
+.nav-item{{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;font-size:13px;font-weight:500;color:var(--text2);cursor:pointer;transition:var(--transition);border:none;background:transparent;width:100%;text-align:left}}
+.nav-item:hover{{background:var(--bg)}}
+.nav-item.active{{background:var(--primary);color:#fff;font-weight:600;box-shadow:0 2px 8px rgba(37,99,235,.25)}}
+.nav-item .icon{{font-size:16px;width:20px;text-align:center}}
+.nav-item .nav-badge{{margin-left:auto;background:var(--red);color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px}}
+.sidebar-footer{{padding:12px 16px;border-top:1px solid var(--border)}}
+.sidebar-footer .token-row{{display:flex;gap:6px}}
+.sidebar-footer input{{flex:1;height:34px;font-size:12px}}
+.sidebar-footer button{{height:34px;font-size:11px;padding:0 10px}}
+
+/* Middle panel - conversations */
+.conv-panel{{background:var(--white);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}}
+.conv-header{{padding:16px;border-bottom:1px solid var(--border);display:flex;flex-direction:column;gap:10px}}
+.conv-header h2{{font-size:15px;font-weight:700}}
+.conv-search input{{width:100%;height:38px;border:1px solid var(--border);border-radius:10px;padding:0 14px;font-size:13px;background:var(--bg);outline:none}}
+.conv-search input:focus{{border-color:var(--primary)}}
+.conv-list{{flex:1;overflow-y:auto}}
+.conv-item{{width:100%;text-align:left;border:none;border-radius:0;border-bottom:1px solid var(--border-light);padding:14px 16px;display:grid;gap:4px;cursor:pointer;transition:var(--transition);background:transparent;height:auto}}
+.conv-item:hover{{background:var(--bg)}}
+.conv-item.selected{{background:var(--primary-bg);border-left:3px solid var(--primary)}}
+.conv-item .c-row{{display:flex;align-items:center;justify-content:space-between;gap:6px}}
+.conv-item .c-name{{font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
+.conv-item .c-time{{font-size:11px;color:var(--muted);white-space:nowrap}}
+.conv-item .c-preview{{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:2px}}
+
+/* Badges */
+.badge{{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:20px;font-size:10px;font-weight:600}}
+.badge::before{{content:"";width:5px;height:5px;border-radius:50%}}
+.badge.on{{color:var(--green);background:var(--green-bg);border:1px solid var(--green-border)}}.badge.on::before{{background:var(--green)}}
+.badge.off{{color:var(--red);background:var(--red-bg);border:1px solid var(--red-border)}}.badge.off::before{{background:var(--red)}}
+.badge.warn{{color:var(--amber);background:var(--amber-bg);border:1px solid rgba(245,158,11,.25)}}.badge.warn::before{{background:var(--amber)}}
+
+/* Right panel - content */
+.main-panel{{display:flex;flex-direction:column;overflow:hidden}}
+.main-topbar{{height:60px;background:var(--white);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 20px;flex-shrink:0}}
+.main-topbar-left{{display:flex;align-items:center;gap:12px}}
+.main-topbar-left .contact-name{{font-weight:700;font-size:14px}}
+.main-topbar-left .contact-phone{{font-size:12px;color:var(--muted)}}
+.main-topbar-right{{display:flex;gap:8px}}
+
+/* Buttons */
+button{{font-family:inherit;font-size:13px;font-weight:600;border:1px solid var(--border);border-radius:var(--radius);background:var(--white);color:var(--text);height:38px;padding:0 16px;cursor:pointer;transition:var(--transition);display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap}}
+button:hover{{background:var(--bg)}}
+button:active{{transform:scale(.98)}}
+button:disabled{{opacity:.4;cursor:not-allowed}}
+button.primary{{background:var(--primary);border-color:var(--primary);color:#fff;box-shadow:0 2px 6px rgba(37,99,235,.2)}}
+button.primary:hover{{background:var(--primary-light)}}
+button.danger{{background:var(--white);border-color:var(--red-border);color:var(--red)}}
+button.danger:hover{{background:var(--red-bg)}}
+button.sm{{height:32px;font-size:12px;padding:0 12px;border-radius:8px}}
+input,select,textarea{{font-family:inherit;font-size:13px;color:var(--text);background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:0 12px;height:38px;outline:none;transition:var(--transition)}}
+input:focus,textarea:focus{{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-bg)}}
+textarea{{height:auto;min-height:80px;padding:10px 12px;resize:vertical;width:100%}}
+input[type=file]{{padding:8px 12px;height:auto}}
+
+/* Messages */
+.messages-area{{flex:1;overflow-y:auto;padding:20px;background:var(--bg)}}
+.bubble{{max-width:680px;margin-bottom:12px;padding:12px 16px;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--white);line-height:1.5;overflow-wrap:anywhere;white-space:pre-wrap;box-shadow:var(--shadow)}}
+.bubble.incoming{{margin-right:auto;border-bottom-left-radius:4px}}
+.bubble.outgoing{{margin-left:auto;background:var(--primary-bg);border-color:var(--primary-border);border-bottom-right-radius:4px}}
+.bubble .msg-meta{{display:flex;justify-content:space-between;gap:10px;font-size:11px;color:var(--muted);margin-bottom:6px}}
+.bubble .msg-error{{color:var(--red);font-size:11px;margin-top:6px}}
+
+/* Bottom area */
+.bottom-area{{border-top:1px solid var(--border);background:var(--white);max-height:350px;overflow-y:auto}}
+.bottom-tabs{{display:flex;border-bottom:1px solid var(--border)}}
+.btab{{border:none;border-radius:0;background:transparent;color:var(--muted);font-weight:600;padding:12px 18px;font-size:12px;cursor:pointer;border-bottom:2px solid transparent;height:auto}}
+.btab:hover{{color:var(--text)}}
+.btab.active{{color:var(--primary);border-bottom-color:var(--primary)}}
+.btab-panel{{display:none;padding:16px 20px}}
+.btab-panel.active{{display:block}}
+
+/* Knowledge */
+.knowledge-form{{display:grid;grid-template-columns:1fr 150px 150px auto;gap:8px;align-items:end;margin-bottom:12px}}
+table{{width:100%;border-collapse:collapse;font-size:12px}}
+th{{text-align:left;padding:8px 10px;font-weight:600;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid var(--border)}}
+td{{padding:8px 10px;border-bottom:1px solid var(--border-light)}}
+tr:hover td{{background:var(--bg)}}
+
+/* Cards */
+.card{{background:var(--white);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;box-shadow:var(--shadow)}}
+
+/* Empty */
+.empty{{color:var(--muted);padding:40px;text-align:center;font-size:13px}}
+
+/* Responsive */
+@media(max-width:900px){{
+  .app{{grid-template-columns:1fr;grid-template-rows:auto 1fr}}
+  .sidebar,.conv-panel{{display:none}}
+  .knowledge-form{{grid-template-columns:1fr}}
+}}
+</style>
 </head>
 <body>
-  <header>
-    <h1>HalloTravel Admin</h1>
-    <div class="row">
-      <input id="tokenInput" type="password" placeholder="Admin token">
-      <button id="saveToken">Simpan</button>
-      <button id="refresh">Refresh</button>
+<div class="app">
+<!-- Sidebar -->
+<aside class="sidebar">
+  <div class="sidebar-brand">
+    <div class="logo-icon">H</div>
+    <h1>{client_code}</h1>
+  </div>
+  <div class="sidebar-nav">
+    <button class="nav-item active" data-view="conversations"><span class="icon">💬</span> Conversations</button>
+    <button class="nav-item" data-view="knowledge"><span class="icon">📚</span> Knowledge</button>
+    <a href="/admin" style="text-decoration:none"><button class="nav-item" style="width:100%"><span class="icon">🏠</span> Super Admin</button></a>
+  </div>
+  <div class="sidebar-footer">
+    <div class="token-row">
+      <input id="tokenInput" type="password" placeholder="Token">
+      <button id="saveToken" class="sm primary">OK</button>
     </div>
-  </header>
-  <main class="layout">
-    <aside class="sidebar" id="conversationList"><div class="empty">Memuat conversation...</div></aside>
-    <section class="content">
-      <div class="toolbar">
-        <span id="selectedTitle" class="name">Pilih conversation</span>
-        <span id="selectedStatus" class="badge">-</span>
-        <button id="botOn" class="primary" disabled>Bot ON</button>
-        <button id="takeover" class="danger" disabled>Admin Takeover</button>
+  </div>
+</aside>
+
+<!-- Conversations List -->
+<div class="conv-panel">
+  <div class="conv-header">
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <h2>Conversations</h2>
+      <button id="refreshBtn" class="sm" onclick="loadConversations()">↻</button>
+    </div>
+    <div class="conv-search"><input id="convSearch" type="text" placeholder="Cari nama / nomor..."></div>
+  </div>
+  <div class="conv-list" id="conversationList"><div class="empty">Memuat...</div></div>
+</div>
+
+<!-- Main Content -->
+<div class="main-panel">
+  <div class="main-topbar">
+    <div class="main-topbar-left">
+      <div>
+        <div class="contact-name" id="selectedName">Pilih conversation</div>
+        <div class="contact-phone" id="selectedPhone">-</div>
       </div>
-      <div class="messages" id="messages"><div class="empty">Log pesan akan tampil di sini.</div></div>
-      <div class="bottom">
-        <strong>Handover & Audit Log</strong>
-        <table><thead><tr><th>Waktu</th><th>Tipe</th><th>Detail</th></tr></thead><tbody id="auditRows"></tbody></table>
-        <hr>
-        <strong>Knowledge / RAG</strong>
-        <div class="knowledge-grid">
+      <span id="selectedBadge" class="badge on" style="display:none">-</span>
+    </div>
+    <div class="main-topbar-right">
+      <button id="botOn" class="primary sm" disabled>✅ Bot ON</button>
+      <button id="takeover" class="danger sm" disabled>🛑 Takeover</button>
+    </div>
+  </div>
+  <div class="messages-area" id="messages"><div class="empty">Pilih conversation untuk melihat pesan</div></div>
+  <div class="bottom-area">
+    <div class="bottom-tabs">
+      <button class="btab active" data-panel="logs">📋 Handover & Audit</button>
+      <button class="btab" data-panel="knowledge">📚 Knowledge</button>
+      <button class="btab" data-panel="addknowledge">➕ Tambah Knowledge</button>
+    </div>
+    <div class="btab-panel active" id="panel-logs">
+      <table><thead><tr><th>Waktu</th><th>Tipe</th><th>Detail</th></tr></thead><tbody id="auditRows"><tr><td colspan="3" class="empty">Pilih conversation</td></tr></tbody></table>
+    </div>
+    <div class="btab-panel" id="panel-knowledge">
+      <table><thead><tr><th>Dokumen</th><th>Tipe</th><th>Chunks</th><th>Versi</th></tr></thead><tbody id="knowledgeRows"><tr><td colspan="4" class="empty">Memuat...</td></tr></tbody></table>
+    </div>
+    <div class="btab-panel" id="panel-addknowledge">
+      <div style="margin-bottom:16px">
+        <strong style="font-size:13px">Tambah Knowledge Teks</strong>
+        <div class="knowledge-form" style="margin-top:8px">
           <input id="knowledgeTitle" placeholder="Judul knowledge">
-          <select id="knowledgeType">
-            <option value="itinerary">Itinerary</option>
-            <option value="faq">FAQ</option>
-            <option value="package">Paket</option>
-            <option value="terms">Syarat</option>
-          </select>
-          <select id="knowledgeSource">
-            <option value="admin_override">Admin Override</option>
-            <option value="faq">FAQ</option>
-            <option value="package_database">Package DB</option>
-            <option value="brochure_pdf">Brochure</option>
-          </select>
-          <button id="ingestKnowledge" class="primary">Tambah</button>
+          <select id="knowledgeType"><option value="itinerary">Itinerary</option><option value="faq">FAQ</option><option value="package">Paket</option><option value="terms">Syarat</option></select>
+          <select id="knowledgeSource"><option value="admin_override">Admin Override</option><option value="faq">FAQ</option><option value="package_database">Package DB</option><option value="brochure_pdf">Brochure</option></select>
+          <button id="ingestKnowledge" class="primary sm">Tambah</button>
         </div>
-        <textarea id="knowledgeText" placeholder="Masukkan data resmi travel: itinerary, hotel, maskapai, fasilitas, FAQ, atau ketentuan."></textarea>
-        <div class="knowledge-grid">
-          <input id="knowledgeFileTitle" placeholder="Judul file knowledge">
-          <input id="knowledgeFile" type="file" accept=".pdf,.txt,.md">
-          <button id="uploadKnowledgeFile" class="primary">Upload File</button>
-        </div>
-        <table><thead><tr><th>Dokumen</th><th>Tipe</th><th>Chunk</th><th>Versi</th></tr></thead><tbody id="knowledgeRows"></tbody></table>
+        <textarea id="knowledgeText" placeholder="Masukkan data resmi: itinerary, hotel, maskapai, fasilitas, FAQ, atau ketentuan..." rows="3"></textarea>
       </div>
-    </section>
-  </main>
-  <script>
-    const clientCode = "{client_code}";
-    let token = new URLSearchParams(location.search).get("token") || sessionStorage.getItem("adminToken") || "";
-    let selectedId = "";
-    const tokenInput = document.getElementById("tokenInput");
-    tokenInput.value = token;
-
-    function authUrl(path) {{
-      return path;
-    }}
-    async function request(path, options = {{}}) {{
-      const headers = Object.assign({{}}, options.headers || {{}});
-      if (token) headers["X-Admin-Token"] = token;
-      const res = await fetch(authUrl(path), Object.assign({{}}, options, {{headers}}));
-      if (!res.ok) throw new Error(`${{res.status}} ${{await res.text()}}`);
-      return res.json();
-    }}
-    function fmtTime(value) {{
-      if (!value) return "-";
-      try {{ return new Date(value).toLocaleString("id-ID"); }} catch {{ return value; }}
-    }}
-    function esc(value) {{
-      return String(value ?? "").replace(/[&<>"']/g, ch => ({{"&":"&amp;","<":"&lt;",">":"&gt;","\\\\"":"&quot;","'":"&#39;"}}[ch]));
-    }}
-    function statusBadge(conversation) {{
-      if (conversation.bot_enabled && conversation.status === "bot_active") return '<span class="badge on">Bot ON</span>';
-      if (conversation.status === "handover_required") return '<span class="badge warn">Handover</span>';
-      return '<span class="badge off">Bot OFF</span>';
-    }}
-    async function loadConversations() {{
-      const list = document.getElementById("conversationList");
-      list.innerHTML = '<div class="empty">Memuat conversation...</div>';
-      try {{
-        const data = await request(`/admin/${{clientCode}}/api/conversations`);
-        if (!data.conversations.length) {{
-          list.innerHTML = '<div class="empty">Belum ada conversation.</div>';
-          return;
-        }}
-        list.innerHTML = data.conversations.map(c => `
-          <button class="list-item ${{c.id === selectedId ? "active" : ""}}" data-id="${{c.id}}">
-            <div class="row"><span class="name">${{esc(c.name || c.phone || "Tanpa nama")}}</span>${{statusBadge(c)}}</div>
-            <div class="phone">${{esc(c.phone)}} · ${{fmtTime(c.last_message_at)}}</div>
-            <div class="preview">${{esc(c.last_direction)}}: ${{esc((c.last_text || "").slice(0, 130))}}</div>
-          </button>
-        `).join("");
-        list.querySelectorAll(".list-item").forEach(btn => btn.addEventListener("click", () => loadMessages(btn.dataset.id)));
-        if (!selectedId && data.conversations[0]) loadMessages(data.conversations[0].id);
-      }} catch (err) {{
-        list.innerHTML = `<div class="empty">${{esc(err.message)}}</div>`;
-      }}
-    }}
-    async function loadMessages(id) {{
-      selectedId = id;
-      document.getElementById("botOn").disabled = false;
-      document.getElementById("takeover").disabled = false;
-      const data = await request(`/admin/${{clientCode}}/api/conversations/${{id}}/messages`);
-      const c = data.conversation;
-      document.getElementById("selectedTitle").textContent = `${{c.name || "Tanpa nama"}} · ${{c.phone}}`;
-      document.getElementById("selectedStatus").textContent = `${{c.status}} · bot=${{c.bot_enabled ? "on" : "off"}}`;
-      document.getElementById("selectedStatus").className = `badge ${{c.bot_enabled ? "on" : "off"}}`;
-      document.getElementById("messages").innerHTML = data.messages.map(m => `
-        <div class="bubble ${{m.direction}}">
-          <div class="meta"><span>${{esc(m.direction)}} · ${{esc(m.message_type)}} · send=${{m.send_success}}</span><span>${{fmtTime(m.created_at)}}</span></div>
-          ${{esc(m.text || m.file_url || "-")}}
-          ${{m.error ? `<div class="preview">Error: ${{esc(m.error)}}</div>` : ""}}
-          ${{m.raw_payload ? `<details><summary class="preview">Raw webhook</summary><pre>${{esc(JSON.stringify(m.raw_payload, null, 2))}}</pre></details>` : ""}}
+      <div>
+        <strong style="font-size:13px">Upload File Knowledge</strong>
+        <div class="knowledge-form" style="margin-top:8px">
+          <input id="knowledgeFileTitle" placeholder="Judul file">
+          <input id="knowledgeFile" type="file" accept=".pdf,.txt,.md">
+          <button id="uploadKnowledgeFile" class="primary sm" style="grid-column:span 2">Upload File</button>
         </div>
-      `).join("") || '<div class="empty">Belum ada pesan.</div>';
-      document.getElementById("auditRows").innerHTML = [
-        ...data.handovers.map(h => ({{time: h.created_at, type: `handover:${{h.status}}`, detail: `${{h.reason}} - ${{h.summary}}`}})),
-        ...data.audits.map(a => ({{time: a.created_at, type: a.event_type, detail: JSON.stringify(a.new_value || {{}})}})),
-        ...data.rag_traces.map(r => ({{time: r.created_at, type: `rag:${{r.confidence}}`, detail: `${{r.normalized_query}} | ${{JSON.stringify(r.sources || [])}}`}})),
-        ...data.knowledge_conflicts.map(k => ({{time: k.created_at, type: `conflict:${{k.conflict_type}}`, detail: `${{k.query_text}} | ${{JSON.stringify(k.conflict_fields || [])}}`}})),
-      ].sort((a, b) => String(b.time).localeCompare(String(a.time))).map(row => `
-        <tr><td>${{fmtTime(row.time)}}</td><td>${{esc(row.type)}}</td><td>${{esc(row.detail)}}</td></tr>
-      `).join("");
-      await loadConversations();
-    }}
+      </div>
+    </div>
+  </div>
+</div>
+</div>
 
-    async function loadKnowledge() {{
-      try {{
-        const data = await request(`/admin/${{clientCode}}/api/knowledge`);
-        document.getElementById("knowledgeRows").innerHTML = data.documents.map(d => `
-          <tr>
-            <td>${{esc(d.title)}}</td>
-            <td>${{esc(d.document_type || d.source_type)}}</td>
-            <td>${{d.chunk_count}}</td>
-            <td>${{esc(d.doc_version)}}</td>
-          </tr>
-        `).join("") || '<tr><td colspan="4">Belum ada knowledge.</td></tr>';
-      }} catch (err) {{
-        document.getElementById("knowledgeRows").innerHTML = `<tr><td colspan="4">${{esc(err.message)}}</td></tr>`;
-      }}
-    }}
+<div id="toast"></div>
 
-    async function ingestKnowledge() {{
-      const title = document.getElementById("knowledgeTitle").value.trim();
-      const text = document.getElementById("knowledgeText").value.trim();
-      if (!title || text.length < 20) {{
-        alert("Judul dan isi knowledge minimal 20 karakter wajib diisi.");
-        return;
-      }}
-      await request(`/admin/${{clientCode}}/api/knowledge/text`, {{
-        method: "POST",
-        headers: {{"Content-Type": "application/json"}},
-        body: JSON.stringify({{
-          title,
-          text,
-          document_type: document.getElementById("knowledgeType").value,
-          source_type: document.getElementById("knowledgeSource").value,
-          doc_priority: 80,
-        }}),
-      }});
-      document.getElementById("knowledgeTitle").value = "";
-      document.getElementById("knowledgeText").value = "";
-      await loadKnowledge();
-      alert("Knowledge berhasil ditambahkan.");
-    }}
+<script>
+const clientCode="{client_code}";
+let token=new URLSearchParams(location.search).get("token")||sessionStorage.getItem("adminToken")||"";
+let selectedId="";
+let allConversations=[];
+document.getElementById("tokenInput").value=token;
 
-    async function uploadKnowledgeFile() {{
-      const title = document.getElementById("knowledgeFileTitle").value.trim();
-      const file = document.getElementById("knowledgeFile").files[0];
-      if (!title || !file) {{
-        alert("Judul file dan file wajib diisi.");
-        return;
-      }}
-      const form = new FormData();
-      form.append("title", title);
-      form.append("file", file);
-      form.append("document_type", document.getElementById("knowledgeType").value);
-      form.append("source_type", document.getElementById("knowledgeSource").value);
-      form.append("doc_priority", "80");
-      await request(`/admin/${{clientCode}}/api/knowledge/file`, {{
-        method: "POST",
-        body: form,
-      }});
-      document.getElementById("knowledgeFileTitle").value = "";
-      document.getElementById("knowledgeFile").value = "";
-      await loadKnowledge();
-      alert("File knowledge berhasil diupload.");
-    }}
+function esc(v){{return String(v??"").replace(/[&<>"']/g,c=>({{"\u0026":"\u0026amp;","<":"\u0026lt;",">":"\u0026gt;",'"':"\u0026quot;","'":"\u0026#39;"}}[c]))}}
+function fmtTime(v){{if(!v)return"-";try{{return new Date(v).toLocaleString("id-ID")}}catch{{return v}}}}
+function toast(msg,type="info"){{const el=document.createElement("div");el.className="toast-item "+type;el.textContent=msg;document.getElementById("toast").appendChild(el);setTimeout(()=>el.remove(),3100)}}
 
-    async function action(path) {{
-      if (!selectedId) return;
-      await request(`/admin/${{clientCode}}/api/conversations/${{selectedId}}/${{path}}`, {{method: "POST"}});
-      await loadMessages(selectedId);
-    }}
-    document.getElementById("saveToken").addEventListener("click", () => {{
-      token = tokenInput.value.trim();
-      sessionStorage.setItem("adminToken", token);
-      loadConversations();
-    }});
-    document.getElementById("refresh").addEventListener("click", loadConversations);
-    document.getElementById("botOn").addEventListener("click", () => action("bot-on"));
-    document.getElementById("takeover").addEventListener("click", () => action("takeover"));
-    document.getElementById("ingestKnowledge").addEventListener("click", ingestKnowledge);
-    document.getElementById("uploadKnowledgeFile").addEventListener("click", uploadKnowledgeFile);
-    loadConversations();
-    loadKnowledge();
-    setInterval(() => selectedId ? loadMessages(selectedId) : loadConversations(), 15000);
-  </script>
+async function request(path,opts={{}}){{
+  const h=Object.assign({{}},opts.headers||{{}});if(token)h["X-Admin-Token"]=token;
+  const res=await fetch(path,Object.assign({{}},opts,{{headers:h}}));
+  if(!res.ok)throw new Error(`${{res.status}} ${{await res.text()}}`);return res.json();
+}}
+
+function statusBadge(c){{
+  if(c.bot_enabled&&c.status==="bot_active")return '<span class="badge on">Bot ON</span>';
+  if(c.status==="handover_required")return '<span class="badge warn">Handover</span>';
+  return '<span class="badge off">Bot OFF</span>';
+}}
+
+async function loadConversations(){{
+  const list=document.getElementById("conversationList");
+  list.innerHTML='<div class="empty">Memuat...</div>';
+  try{{
+    const data=await request(`/admin/${{clientCode}}/api/conversations`);
+    allConversations=data.conversations||[];
+    renderConversations();
+    if(!selectedId&&allConversations[0])loadMessages(allConversations[0].id);
+  }}catch(err){{list.innerHTML=`<div class="empty">${{esc(err.message)}}</div>`}}
+}}
+
+function renderConversations(){{
+  const list=document.getElementById("conversationList");
+  const q=(document.getElementById("convSearch").value||"").toLowerCase();
+  const filtered=allConversations.filter(c=>(c.name+c.phone).toLowerCase().includes(q));
+  if(!filtered.length){{list.innerHTML='<div class="empty">Tidak ada conversation</div>';return}}
+  list.innerHTML=filtered.map(c=>`
+    <button class="conv-item ${{c.id===selectedId?"selected":""}}" data-id="${{c.id}}">
+      <div class="c-row"><span class="c-name">${{esc(c.name||c.phone||"Tanpa nama")}}</span>${{statusBadge(c)}}</div>
+      <div class="c-row"><span class="c-preview">${{esc((c.last_text||"").slice(0,80))}}</span><span class="c-time">${{fmtTime(c.last_message_at)}}</span></div>
+    </button>`).join("");
+  list.querySelectorAll(".conv-item").forEach(b=>b.addEventListener("click",()=>loadMessages(b.dataset.id)));
+}}
+
+async function loadMessages(id){{
+  selectedId=id;
+  document.getElementById("botOn").disabled=false;
+  document.getElementById("takeover").disabled=false;
+  const data=await request(`/admin/${{clientCode}}/api/conversations/${{id}}/messages`);
+  const c=data.conversation;
+
+  document.getElementById("selectedName").textContent=c.name||"Tanpa nama";
+  document.getElementById("selectedPhone").textContent=c.phone||"-";
+  const badge=document.getElementById("selectedBadge");
+  badge.style.display="inline-flex";
+  badge.textContent=c.bot_enabled?"Bot ON":"Bot OFF";
+  badge.className="badge "+(c.bot_enabled?"on":"off");
+
+  const msgArea=document.getElementById("messages");
+  msgArea.innerHTML=data.messages.map(m=>`
+    <div class="bubble ${{m.direction}}">
+      <div class="msg-meta"><span>${{esc(m.direction)}} · ${{esc(m.message_type)}}</span><span>${{fmtTime(m.created_at)}}</span></div>
+      ${{esc(m.text||m.file_url||"-")}}
+      ${{m.error?`<div class="msg-error">⚠ ${{esc(m.error)}}</div>`:""}}
+      ${{m.raw_payload?`<details style="margin-top:6px"><summary style="font-size:11px;color:var(--muted);cursor:pointer">Raw payload</summary><pre style="font-size:11px;color:var(--muted);white-space:pre-wrap;margin-top:4px">${{esc(JSON.stringify(m.raw_payload,null,2))}}</pre></details>`:""}}
+    </div>`).join("")||'<div class="empty">Belum ada pesan</div>';
+  msgArea.scrollTop=msgArea.scrollHeight;
+
+  document.getElementById("auditRows").innerHTML=[
+    ...data.handovers.map(h=>({{time:h.created_at,type:`handover:${{h.status}}`,detail:`${{h.reason}} — ${{h.summary}}`}})),
+    ...data.audits.map(a=>({{time:a.created_at,type:a.event_type,detail:JSON.stringify(a.new_value||{{}})}})),
+    ...data.rag_traces.map(r=>({{time:r.created_at,type:`rag (${{r.confidence.toFixed(2)}})`,detail:`${{r.normalized_query}}`}})),
+    ...data.knowledge_conflicts.map(k=>({{time:k.created_at,type:`conflict:${{k.conflict_type}}`,detail:k.query_text}})),
+  ].sort((a,b)=>String(b.time).localeCompare(String(a.time))).map(row=>`
+    <tr><td style="white-space:nowrap">${{fmtTime(row.time)}}</td><td><span class="badge on" style="font-size:10px">${{esc(row.type)}}</span></td><td style="color:var(--text2)">${{esc(row.detail)}}</td></tr>
+  `).join("")||'<tr><td colspan="3" class="empty">Tidak ada log</td></tr>';
+
+  renderConversations();
+}}
+
+async function loadKnowledge(){{
+  try{{
+    const data=await request(`/admin/${{clientCode}}/api/knowledge`);
+    document.getElementById("knowledgeRows").innerHTML=data.documents.map(d=>`
+      <tr><td style="font-weight:600">${{esc(d.title)}}</td><td>${{esc(d.document_type||d.source_type)}}</td><td>${{d.chunk_count}}</td><td>${{esc(d.doc_version)}}</td></tr>
+    `).join("")||'<tr><td colspan="4" class="empty">Belum ada knowledge</td></tr>';
+  }}catch(err){{document.getElementById("knowledgeRows").innerHTML=`<tr><td colspan="4" class="empty">${{esc(err.message)}}</td></tr>`}}
+}}
+
+async function ingestKnowledge(){{
+  const title=document.getElementById("knowledgeTitle").value.trim();
+  const text=document.getElementById("knowledgeText").value.trim();
+  if(!title||text.length<20){{toast("Judul dan isi minimal 20 karakter","error");return}}
+  try{{
+    await request(`/admin/${{clientCode}}/api/knowledge/text`,{{method:"POST",headers:{{"Content-Type":"application/json"}},body:JSON.stringify({{title,text,document_type:document.getElementById("knowledgeType").value,source_type:document.getElementById("knowledgeSource").value,doc_priority:80}})}});
+    document.getElementById("knowledgeTitle").value="";document.getElementById("knowledgeText").value="";
+    toast("Knowledge ditambahkan!","success");await loadKnowledge();
+  }}catch(err){{toast(err.message,"error")}}
+}}
+
+async function uploadKnowledgeFile(){{
+  const title=document.getElementById("knowledgeFileTitle").value.trim();
+  const file=document.getElementById("knowledgeFile").files[0];
+  if(!title||!file){{toast("Judul dan file wajib diisi","error");return}}
+  const form=new FormData();form.append("title",title);form.append("file",file);
+  form.append("document_type",document.getElementById("knowledgeType").value);
+  form.append("source_type",document.getElementById("knowledgeSource").value);form.append("doc_priority","80");
+  try{{
+    await request(`/admin/${{clientCode}}/api/knowledge/file`,{{method:"POST",body:form}});
+    document.getElementById("knowledgeFileTitle").value="";document.getElementById("knowledgeFile").value="";
+    toast("File uploaded!","success");await loadKnowledge();
+  }}catch(err){{toast(err.message,"error")}}
+}}
+
+async function action(path){{
+  if(!selectedId)return;
+  try{{
+    await request(`/admin/${{clientCode}}/api/conversations/${{selectedId}}/${{path}}`,{{method:"POST"}});
+    toast(path==="bot-on"?"Bot dinyalakan":"Admin takeover aktif","success");
+    await loadMessages(selectedId);
+  }}catch(err){{toast(err.message,"error")}}
+}}
+
+/* Tab switching - bottom */
+document.querySelectorAll(".btab").forEach(btn=>btn.addEventListener("click",()=>{{
+  document.querySelectorAll(".btab").forEach(b=>b.classList.toggle("active",b===btn));
+  document.querySelectorAll(".btab-panel").forEach(p=>p.classList.toggle("active",p.id==="panel-"+btn.dataset.panel));
+}}));
+
+/* Sidebar nav */
+document.querySelectorAll(".nav-item[data-view]").forEach(btn=>btn.addEventListener("click",()=>{{
+  document.querySelectorAll(".nav-item[data-view]").forEach(b=>b.classList.toggle("active",b===btn));
+}}));
+
+/* Events */
+document.getElementById("saveToken").addEventListener("click",()=>{{token=document.getElementById("tokenInput").value.trim();sessionStorage.setItem("adminToken",token);loadConversations()}});
+document.getElementById("botOn").addEventListener("click",()=>action("bot-on"));
+document.getElementById("takeover").addEventListener("click",()=>action("takeover"));
+document.getElementById("ingestKnowledge").addEventListener("click",ingestKnowledge);
+document.getElementById("uploadKnowledgeFile").addEventListener("click",uploadKnowledgeFile);
+document.getElementById("convSearch").addEventListener("input",renderConversations);
+
+loadConversations();
+loadKnowledge();
+setInterval(()=>selectedId?loadMessages(selectedId):loadConversations(),15000);
+</script>
 </body>
 </html>"""
